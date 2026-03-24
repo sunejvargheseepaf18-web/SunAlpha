@@ -1,0 +1,103 @@
+
+import { AssetIntelligence, ExploreIntelligence, InstrumentType } from '../types';
+import { fetchStockDetails, fetchFundamentalDetails, fetchMarketPulse, fetchOptionRadar, fetchFailedSignals, fetchMutualFundDetails } from './marketData';
+import { detectRegime } from './regimeEngine';
+import { generateTechnicalReport } from './technicalAnalysis';
+import { generateFundamentalReport } from './fundamentalAnalysis';
+import { generateConviction } from './convictionEngine';
+import { runMarketScans } from './scannerEngine';
+import { fetchBaskets } from './basketEngine';
+
+// Helper to determine instrument type from symbol (Mock Logic)
+const identifyInstrument = (symbol: string): InstrumentType => {
+    const upper = symbol.toUpperCase();
+    if (upper.includes('-CAP') || upper.includes('FUND') || upper.includes('DIRECT') || upper.includes('PARAG')) return 'MUTUAL_FUND';
+    if (upper.includes('ETF') || upper.includes('BEES')) return 'ETF';
+    if (upper.includes(' CE') || upper.includes(' PE') || upper.includes(' FUT')) return 'DERIVATIVE';
+    return 'STOCK';
+};
+
+/**
+ * The Orchestrator is the ONLY way the UI should consume intelligence.
+ * It combines data fetching, analysis engines, and synthesis logic.
+ */
+export const getAssetIntelligence = async (symbol: string): Promise<AssetIntelligence> => {
+    const type = identifyInstrument(symbol);
+    
+    // A. MUTUAL FUND PATH
+    if (type === 'MUTUAL_FUND') {
+        const mfData = await fetchMutualFundDetails(symbol);
+        
+        // MFs don't need Regime/TA/FA in the same way. 
+        // We return specific MF intelligence.
+        return {
+            symbol: symbol,
+            type: 'MUTUAL_FUND',
+            price: mfData.nav,
+            mfData,
+            lastUpdated: new Date().toISOString()
+        };
+    }
+
+    // B. DERIVATIVE PATH (Simplified for now)
+    if (type === 'DERIVATIVE') {
+        // Fetch underlying price etc. (Mock)
+        return {
+            symbol,
+            type: 'DERIVATIVE',
+            price: 150.25, // Mock option price
+            lastUpdated: new Date().toISOString()
+        };
+    }
+
+    // C. STOCK / ETF PATH (Standard Intelligence)
+    
+    // 1. Parallel Fetching of Raw Data
+    const [stockData, fundamentalData] = await Promise.all([
+        fetchStockDetails(symbol),
+        fetchFundamentalDetails(symbol)
+    ]);
+
+    // 2. Run Intelligence Engines
+    const regime = detectRegime(stockData);
+    const taReport = generateTechnicalReport(stockData);
+    const faReport = generateFundamentalReport(fundamentalData);
+
+    // 3. Synthesize Conviction (The Brain)
+    const conviction = generateConviction(taReport, faReport, regime);
+
+    // 4. Return Unified Intelligence Object
+    return {
+        symbol: stockData.symbol,
+        type: type,
+        price: stockData.price,
+        stockData,
+        technical: taReport,
+        fundamental: faReport,
+        conviction,
+        regime,
+        lastUpdated: new Date().toISOString()
+    };
+};
+
+/**
+ * Orchestrator for the Explore Mode (Market-wide Intelligence)
+ */
+export const getExploreIntelligence = async (): Promise<ExploreIntelligence> => {
+    // Parallel Fetching of All Market Context
+    const [pulse, scans, baskets, optionsRadar, failedSignals] = await Promise.all([
+        fetchMarketPulse(),
+        runMarketScans(),
+        fetchBaskets(),
+        fetchOptionRadar(),
+        fetchFailedSignals()
+    ]);
+
+    return {
+        pulse,
+        scans,
+        baskets,
+        optionsRadar,
+        failedSignals
+    };
+};

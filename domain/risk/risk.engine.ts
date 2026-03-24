@@ -1,0 +1,44 @@
+
+import { RiskValidationInput, RiskValidationResult } from "./risk.types";
+
+/**
+ * PURE DOMAIN FUNCTION
+ * Validates proposed actions against strict risk constraints.
+ * Acts as the final gate before execution.
+ */
+export function validateTradeRisk(input: RiskValidationInput): RiskValidationResult {
+  const { actions, constraints, portfolioValue } = input;
+
+  let totalTurnover = 0;
+
+  for (const action of actions) {
+    const pct = action.amount / portfolioValue;
+    totalTurnover += pct;
+
+    // 1. Single Trade Limit Check
+    if (pct > constraints.maxSingleTradePct) {
+      return {
+        approved: false,
+        reason: `Risk Violation: Trade size for ${action.symbol} (${(pct * 100).toFixed(1)}%) exceeds limit (${(constraints.maxSingleTradePct * 100).toFixed(1)}%)`
+      };
+    }
+
+    // 2. Allowed Universe Check
+    if (constraints.allowedSymbols && !constraints.allowedSymbols.includes(action.symbol)) {
+      return {
+        approved: false,
+        reason: `Risk Violation: Symbol ${action.symbol} is not in the allowed trading universe.`
+      };
+    }
+  }
+
+  // 3. Total Turnover Check (Churn Prevention)
+  if (totalTurnover > constraints.maxTotalTurnoverPct) {
+    return {
+      approved: false,
+      reason: `Risk Violation: Total turnover (${(totalTurnover * 100).toFixed(1)}%) exceeds safety limit (${(constraints.maxTotalTurnoverPct * 100).toFixed(1)}%).`
+    };
+  }
+
+  return { approved: true };
+}
