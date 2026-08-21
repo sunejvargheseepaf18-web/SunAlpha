@@ -3,8 +3,13 @@ import { PortfolioPosition, Insight, PortfolioHistoryPoint, ExecutionMode } from
 import { MOCK_HOLDINGS_DATA } from '../constants';
 import { getVirtualPositions, initializePaperAccount } from './paper/paperStore';
 import { getLatestNavByName } from './mfNavService';
-import { generateHoldingAdvices } from '../domain/advice/advice.engine';
-import { HoldingAdvice, MarketSignal } from '../domain/advice/advice.types';
+import { generateHoldingAdvices, generateRedeploymentPlan } from '../domain/advice/advice.engine';
+import {
+  HoldingAdvice,
+  MarketSignal,
+  RedeployCandidate,
+  RedeploymentPlan
+} from '../domain/advice/advice.types';
 
 /**
  * Single source of truth for the recommendation shown next to a holding —
@@ -29,6 +34,64 @@ export const getHoldingAdvices = (
     })),
     { maxSingleHoldingPct, signals }
   );
+
+// Mock market data for redeployment fallbacks (this app has no live equity
+// feed yet; replace with real quotes when the broker service goes live).
+const NIFTYBEES_PRICE = 280.5;
+const NIFTY_HEDGE_MARGIN_PER_LOT = 38600; // ≈16% of 1-lot notional
+const NIFTY_LOT_SIZE = 75;
+
+/**
+ * Companion to getHoldingAdvices: when the advices free cash (trims/exits),
+ * suggest where it goes next — bullish-signal holdings first, then a
+ * diversified index ETF, then margin for a NIFTY short hedge. Every
+ * suggestion carries exact quantity, rate and amount.
+ */
+export const getRedeploymentPlan = (
+  advices: HoldingAdvice[],
+  positions: PortfolioPosition[]
+): RedeploymentPlan => {
+  const candidates: RedeployCandidate[] = [];
+
+  // 1. Holdings the market is bullish on (and that we're not selling)
+  for (const advice of advices) {
+    if (advice.action !== 'HOLD' && advice.action !== 'ADD') continue;
+    if (!['STRONG BUY', 'BUY', 'ACCUMULATE'].includes(advice.signal)) continue;
+    const pos = positions.find(p => p.symbol === advice.symbol);
+    if (!pos || pos.currentPrice <= 0) continue;
+    candidates.push({
+      symbol: pos.symbol,
+      name: pos.name,
+      kind: pos.assetType === 'MF' ? 'MF' : 'STOCK',
+      rate: pos.currentPrice,
+      reason: `Market signal ${advice.signal} on an existing holding.`,
+      maxAllocationPct: 30
+    });
+  }
+
+  // 2. Diversified index exposure — the default home for trim proceeds
+  candidates.push({
+    symbol: 'NIFTYBEES',
+    name: 'Nippon India Nifty 50 BeES ETF',
+    kind: 'ETF',
+    rate: NIFTYBEES_PRICE,
+    reason: 'Replaces single-stock concentration with diversified index exposure.',
+    maxAllocationPct: 60
+  });
+
+  // 3. Derivatives: margin for a NIFTY short hedge while the book is unwound
+  candidates.push({
+    symbol: 'NIFTY-SHORT-HEDGE',
+    name: 'NIFTY short futures hedge',
+    kind: 'DERIVATIVE_HEDGE',
+    rate: NIFTY_HEDGE_MARGIN_PER_LOT,
+    lotSize: NIFTY_LOT_SIZE,
+    reason: 'Protects remaining equity exposure during the rebalance.',
+    maxAllocationPct: 25
+  });
+
+  return generateRedeploymentPlan(advices, candidates);
+};
 
 // Re-price MF positions from the live AMFI NAV feed. Positions that cannot be
 // linked (bad name match, feed unreachable) are returned unchanged so the

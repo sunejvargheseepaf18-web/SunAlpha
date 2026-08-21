@@ -49,6 +49,39 @@ export interface HoldingAdvice {
   plan?: TradePlan; // absent for HOLD
 }
 
+// --- Redeployment of sale proceeds ---
+
+// A place freed cash could go. All market data (rates, lot sizes) comes in
+// from the caller — the domain engine never fetches anything.
+export interface RedeployCandidate {
+  symbol: string;
+  name: string;
+  kind: 'STOCK' | 'ETF' | 'MF' | 'DERIVATIVE_HEDGE';
+  // Price per share/unit; for DERIVATIVE_HEDGE, the margin required per lot.
+  rate: number;
+  lotSize?: number; // derivatives only, informational
+  reason: string;
+  // Cap on how much of the freed cash may flow to this candidate (default 100).
+  maxAllocationPct?: number;
+}
+
+export interface RedeploySuggestion {
+  symbol: string;
+  kind: RedeployCandidate['kind'];
+  side: 'BUY';
+  quantity: number; // shares/units, or lots for a derivative hedge
+  rate: number;
+  amount: number;
+  reason: string;
+  detail: string; // full sentence: what to buy, how many, at what rate, amount
+}
+
+export interface RedeploymentPlan {
+  freedCash: number; // total proceeds from all SELL plans
+  suggestions: RedeploySuggestion[];
+  residualCash: number; // what remains uninvested after the suggestions
+}
+
 export interface AdviceOptions {
   // Max weight a single holding may occupy before a trim is advised.
   maxSingleHoldingPct?: number; // default 18

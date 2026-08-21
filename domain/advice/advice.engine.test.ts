@@ -1,7 +1,7 @@
 
 import { describe, it, expect } from 'vitest';
-import { generateHoldingAdvices } from './advice.engine';
-import { AdvicePosition } from './advice.types';
+import { generateHoldingAdvices, generateRedeploymentPlan } from './advice.engine';
+import { AdvicePosition, RedeployCandidate } from './advice.types';
 
 // Portfolio snapshot from the 21-08-2026 holdings screen.
 const portfolio: AdvicePosition[] = [
@@ -139,5 +139,92 @@ describe('generateHoldingAdvices — edge cases', () => {
         expect(a.plan.amount).toBeCloseTo(a.plan.quantity * a.plan.rate, 6);
       }
     }
+  });
+});
+
+describe('generateRedeploymentPlan — where the trim proceeds go', () => {
+  const candidates: RedeployCandidate[] = [
+    {
+      symbol: 'MIRAE-ELSS',
+      name: 'Mirae Asset ELSS Tax Saver',
+      kind: 'MF',
+      rate: 55.85,
+      reason: 'Bullish signal on existing holding.',
+      maxAllocationPct: 30
+    },
+    {
+      symbol: 'NIFTYBEES',
+      name: 'Nippon India Nifty 50 BeES ETF',
+      kind: 'ETF',
+      rate: 280.5,
+      reason: 'Diversified index exposure instead of single-stock risk.'
+    },
+    {
+      symbol: 'NIFTY-SHORT-HEDGE',
+      name: 'NIFTY short futures hedge',
+      kind: 'DERIVATIVE_HEDGE',
+      rate: 38600, // margin per lot
+      lotSize: 75,
+      reason: 'Protects remaining equity while concentration is unwound.',
+      maxAllocationPct: 25
+    }
+  ];
+
+  it('allocates the M&M trim proceeds into sized buys with exact qty/rate/amount', () => {
+    const advices = generateHoldingAdvices(portfolio, { maxSingleHoldingPct: 18 });
+    const plan = generateRedeploymentPlan(advices, candidates);
+
+    // Freed cash equals the M&M trim proceeds (only SELL plan in the set)
+    const mm = advices.find(a => a.symbol === 'M&M')!;
+    expect(plan.freedCash).toBeCloseTo(mm.plan!.amount, 2);
+
+    // First candidate capped at 30% of freed cash
+    const mirae = plan.suggestions.find(s => s.symbol === 'MIRAE-ELSS')!;
+    expect(mirae.amount).toBeLessThanOrEqual(plan.freedCash * 0.3 + 55.85);
+    expect(mirae.amount).toBeCloseTo(mirae.quantity * 55.85, 2);
+    expect(mirae.detail).toContain('₹55.85');
+
+    // ETF gets whole shares only
+    const etf = plan.suggestions.find(s => s.symbol === 'NIFTYBEES')!;
+    expect(Number.isInteger(etf.quantity)).toBe(true);
+    expect(etf.detail).toContain('shares');
+
+    // Nothing is over-spent and the residual is what's left after whole units
+    const spent = plan.suggestions.reduce((s, x) => s + x.amount, 0);
+    expect(spent).toBeLessThanOrEqual(plan.freedCash);
+    expect(plan.residualCash).toBeCloseTo(plan.freedCash - spent, 6);
+  });
+
+  it('derivative hedge is sized in whole lots at margin-per-lot', () => {
+    const advices = generateHoldingAdvices(portfolio, {
+      maxSingleHoldingPct: 100,
+      signals: { 'M&M': 'SELL' } // full exit frees ~4.27L
+    });
+    const plan = generateRedeploymentPlan(advices, [candidates[2]]);
+    const hedge = plan.suggestions.find(s => s.symbol === 'NIFTY-SHORT-HEDGE')!;
+
+    // 25% of ~4,27,540 = ~1,06,885 -> floor(1,06,885 / 38,600) = 2 lots
+    expect(hedge.quantity).toBe(2);
+    expect(hedge.amount).toBe(2 * 38600);
+    expect(hedge.detail).toContain('lots');
+    expect(hedge.detail).toContain('margin');
+  });
+
+  it('no SELL advices -> empty plan with zero freed cash', () => {
+    const advices = generateHoldingAdvices(portfolio, { maxSingleHoldingPct: 100 });
+    const plan = generateRedeploymentPlan(advices, candidates);
+    expect(plan.freedCash).toBe(0);
+    expect(plan.suggestions).toHaveLength(0);
+    expect(plan.residualCash).toBe(0);
+  });
+
+  it('skips candidates the freed cash cannot afford one unit of', () => {
+    const advices = generateHoldingAdvices(portfolio, { maxSingleHoldingPct: 18 });
+    const expensive: RedeployCandidate[] = [
+      { symbol: 'MRF', name: 'MRF Ltd', kind: 'STOCK', rate: 10_00_000, reason: 'Too pricey.' }
+    ];
+    const plan = generateRedeploymentPlan(advices, expensive);
+    expect(plan.suggestions).toHaveLength(0);
+    expect(plan.residualCash).toBeCloseTo(plan.freedCash, 6);
   });
 });

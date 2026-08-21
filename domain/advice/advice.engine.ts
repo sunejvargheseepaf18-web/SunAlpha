@@ -21,6 +21,9 @@ import {
   AdvicePosition,
   HoldingAdvice,
   MarketSignal,
+  RedeployCandidate,
+  RedeploymentPlan,
+  RedeploySuggestion,
   TradePlan
 } from './advice.types';
 
@@ -181,4 +184,70 @@ export const generateHoldingAdvices = (
       plan: undefined
     };
   });
+};
+
+/**
+ * Where should the money freed by SELL/TRIM advices go?
+ *
+ * Walks `candidates` in priority order (caller decides the order — e.g.
+ * bullish-signal holdings first, then an index ETF, then hedge margin) and
+ * allocates the freed cash into concrete, executable buys: exact quantity,
+ * rate and amount per candidate. Whole shares/units/lots only — whatever
+ * cannot fill a full unit is reported as residualCash, never hidden.
+ */
+export const generateRedeploymentPlan = (
+  advices: HoldingAdvice[],
+  candidates: RedeployCandidate[]
+): RedeploymentPlan => {
+  const freedCash = advices.reduce(
+    (sum, a) => sum + (a.plan?.side === 'SELL' ? a.plan.amount : 0),
+    0
+  );
+
+  const suggestions: RedeploySuggestion[] = [];
+  let remaining = freedCash;
+
+  if (freedCash > 0) {
+    for (const c of candidates) {
+      if (remaining < c.rate) continue; // can't afford one unit/lot
+
+      const capPct = c.maxAllocationPct ?? 100;
+      const budget = Math.min(remaining, (capPct / 100) * freedCash);
+
+      const isHedge = c.kind === 'DERIVATIVE_HEDGE';
+      const isMf = c.kind === 'MF';
+      const rawQty = budget / c.rate;
+      // MF purchases can take fractional units (2dp); everything else is whole.
+      const quantity = isMf ? Math.floor(rawQty * 100) / 100 : Math.floor(rawQty);
+      if (quantity <= 0) continue;
+
+      const amount = quantity * c.rate;
+      const unitLabel = isHedge ? (quantity === 1 ? 'lot' : 'lots') : isMf ? 'units' : 'shares';
+      const qtyStr = isMf ? quantity.toFixed(2) : String(quantity);
+
+      suggestions.push({
+        symbol: c.symbol,
+        kind: c.kind,
+        side: 'BUY',
+        quantity,
+        rate: c.rate,
+        amount,
+        reason: c.reason,
+        detail: isHedge
+          ? `Allocate ${inr(amount)} margin for ${qtyStr} ${unitLabel} of ${c.name} ` +
+            `(≈ ${fmtRate(c.rate)} margin/lot${c.lotSize ? `, lot size ${c.lotSize}` : ''}). ${c.reason}`
+          : `BUY ${qtyStr} ${unitLabel} of ${c.symbol} @ ${fmtRate(c.rate)} ` +
+            `(≈ ${inr(amount)}). ${c.reason}`
+      });
+
+      remaining -= amount;
+      if (remaining <= 0) break;
+    }
+  }
+
+  return {
+    freedCash,
+    suggestions,
+    residualCash: Math.max(0, remaining)
+  };
 };
