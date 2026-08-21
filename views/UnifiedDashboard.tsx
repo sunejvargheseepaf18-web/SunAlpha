@@ -3,9 +3,11 @@ import React, { useEffect, useState } from 'react';
 import { MarketStateCard, ChangeLogPanel, EmptyState } from '../components/SituationPanels';
 import { CapitalMonitor } from '../components/CapitalMonitor';
 import { fetchMarketPulse } from '../services/marketData';
-import { calculatePortfolio } from '../services/portfolioEngine';
+import { calculatePortfolio, getHoldingAdvices, getRedeploymentPlan } from '../services/portfolioEngine';
 import { calculateCapitalSnapshot } from '../services/capitalEngine';
 import { getBrokerProfile } from '../services/brokerService';
+import { HoldingsPanel } from '../components/HoldingsPanel';
+import { HoldingAdvice, RedeploymentPlan } from '../domain/advice/advice.types';
 import { MarketPulse, CapitalSnapshot, UserProfile, LifecycleStage, AppMode, ExecutionMode } from '../types';
 import { ArrowUpRight, PiggyBank, GraduationCap } from 'lucide-react';
 
@@ -25,6 +27,8 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
   const [pulse, setPulse] = useState<MarketPulse | null>(null);
   const [portfolio, setPortfolio] = useState<any>(null);
   const [capitalSnapshot, setCapitalSnapshot] = useState<CapitalSnapshot | null>(null);
+  const [advices, setAdvices] = useState<HoldingAdvice[]>([]);
+  const [redeployment, setRedeployment] = useState<RedeploymentPlan | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -43,6 +47,13 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
           const cap = await calculateCapitalSnapshot(port.positions, broker);
           setCapitalSnapshot(cap);
       }
+
+      // Single source of truth for per-holding recommendations, plus where
+      // any freed sale proceeds should go. Market signals would come from the
+      // conviction engine; none are passed here, so allocation rules decide.
+      const holdingAdvices = getHoldingAdvices(port.positions);
+      setAdvices(holdingAdvices);
+      setRedeployment(getRedeploymentPlan(holdingAdvices, port.positions));
 
       setLoading(false);
     };
@@ -175,6 +186,14 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
             </div>
          </div>
       </div>
+
+      {/* 3. Holdings with fully-specified advice + proceeds redeployment */}
+      <HoldingsPanel
+        positions={portfolio.positions}
+        advices={advices}
+        redeployment={redeployment}
+        onNavigateToAsset={onNavigateToAsset}
+      />
     </div>
   );
 };
