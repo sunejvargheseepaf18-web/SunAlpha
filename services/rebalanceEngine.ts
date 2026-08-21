@@ -123,19 +123,33 @@ export const calculateDrift = (positions: PortfolioPosition[], profileKey: strin
                 .filter(p => getAssetClass(p) === m.assetClass)
                 .sort((a, b) => b.currentValue - a.currentValue);
             
-            const candidate = candidates[0] || { symbol: 'GENERIC', name: m.assetClass };
-            const suggestion = getSuggestions(m.assetClass, 'SELL', candidate.symbol, positions);
+            const candidate = candidates[0];
+            const suggestion = getSuggestions(m.assetClass, 'SELL', candidate?.symbol ?? 'GENERIC', positions);
 
-            const reason = `${m.assetClass.toUpperCase()} overweight by ${m.drift.toFixed(1)}%. Selling heaviest holding.`;
+            // Translate the rupee amount into an executable order: exact
+            // quantity at the holding's current price/NAV.
+            const rate = candidate?.currentPrice;
+            const isMf = candidate?.assetType === 'MF';
+            const rawQty = rate ? amount / rate : undefined;
+            const quantity = rawQty !== undefined && candidate
+                ? Math.min(candidate.quantity, isMf ? Math.ceil(rawQty * 100) / 100 : Math.ceil(rawQty))
+                : undefined;
+
+            const orderDetail = quantity !== undefined && rate !== undefined
+                ? ` Sell ${isMf ? quantity.toFixed(2) : quantity} ${isMf ? 'units' : 'shares'} of ${candidate.symbol} @ ₹${rate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (≈ ₹${Math.round(amount).toLocaleString('en-IN')}).`
+                : '';
+            const reason = `${m.assetClass.toUpperCase()} overweight by ${m.drift.toFixed(1)}%. Selling heaviest holding.${orderDetail}`;
             const tax = amount * 0.1; // Mock tax calculation (10% LTCG approx)
             projectedTaxImpact += tax;
 
             actions.push({
                 id: `act-${m.assetClass}`,
                 type: 'SELL',
-                symbol: candidate.symbol,
+                symbol: candidate?.symbol ?? 'GENERIC',
                 assetClass: m.assetClass,
                 amount,
+                quantity,
+                rate,
                 reason,
                 taxImpact: tax,
                 alternatives: suggestion.alternatives

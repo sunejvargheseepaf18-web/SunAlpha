@@ -3,6 +3,32 @@ import { PortfolioPosition, Insight, PortfolioHistoryPoint, ExecutionMode } from
 import { MOCK_HOLDINGS_DATA } from '../constants';
 import { getVirtualPositions, initializePaperAccount } from './paper/paperStore';
 import { getLatestNavByName } from './mfNavService';
+import { generateHoldingAdvices } from '../domain/advice/advice.engine';
+import { HoldingAdvice, MarketSignal } from '../domain/advice/advice.types';
+
+/**
+ * Single source of truth for the recommendation shown next to a holding —
+ * every surface (Holdings, Universe, Rebalance) must render these advices,
+ * never derive its own verdict, so a symbol can't say SELL in one view and
+ * HOLD in another. `signals` is the market view per symbol (conviction
+ * engine verdicts); portfolio context (concentration) is applied on top.
+ */
+export const getHoldingAdvices = (
+  positions: PortfolioPosition[],
+  signals: Record<string, MarketSignal> = {},
+  maxSingleHoldingPct = 18
+): HoldingAdvice[] =>
+  generateHoldingAdvices(
+    positions.map(p => ({
+      symbol: p.symbol,
+      name: p.name,
+      assetType: p.assetType,
+      quantity: p.quantity,
+      currentPrice: p.currentPrice,
+      currentValue: p.currentValue
+    })),
+    { maxSingleHoldingPct, signals }
+  );
 
 // Re-price MF positions from the live AMFI NAV feed. Positions that cannot be
 // linked (bad name match, feed unreachable) are returned unchanged so the
@@ -65,17 +91,14 @@ export const calculatePortfolio = async (mode: ExecutionMode = 'LIVE'): Promise<
       }));
 
   } else {
-      // LIVE MODE (Mock Data)
+      // LIVE MODE — dummy holdings snapshot; equities priced at their last
+      // traded price, MFs at purchase NAV until the live NAV link below runs.
       positions = MOCK_HOLDINGS_DATA.map((holding, idx) => {
-        // Stable mock fluctuation to prevent jittery UI on re-renders
-        // We use a deterministic "random" based on symbol length to keep it constant per session
-        const stableRandom = (holding.symbol.length % 5) / 10; // 0.0 to 0.4
-        const fluctuation = stableRandom * 10; 
-        const currentPrice = holding.avg + (holding.avg * 0.15) + fluctuation;
-        
+        const currentPrice = holding.last ?? holding.avg;
+
         return {
           id: `pos-${idx}`,
-          assetType: idx % 3 === 0 ? 'STOCK' : 'MF',
+          assetType: holding.assetType,
           symbol: holding.symbol,
           name: holding.name,
           quantity: holding.qty,

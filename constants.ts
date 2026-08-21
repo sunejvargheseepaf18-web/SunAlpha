@@ -43,11 +43,26 @@ export const MODE_CONFIG = {
   }
 };
 
-export const MOCK_HOLDINGS_DATA = [
-  { symbol: "AAPL", name: "Apple Inc.", qty: 15, avg: 145.20 },
-  { symbol: "MSFT", name: "Microsoft Corp", qty: 10, avg: 280.50 },
-  { symbol: "VTI", name: "Vanguard Total Stock", qty: 50, avg: 210.00 },
-  { symbol: "RELIANCE", name: "Reliance Ind.", qty: 100, avg: 2400.00 },
+// Dummy holdings mirroring a real portfolio snapshot (21-08-2026).
+// `avg` is the purchase price; `last` is the latest traded price for equities.
+// MF holdings have no `last` — they are priced from the live AMFI NAV feed at
+// runtime (falling back to `avg` when the feed is unreachable).
+export const MOCK_HOLDINGS_DATA: Array<{
+  symbol: string;
+  name: string;
+  assetType: 'STOCK' | 'MF';
+  qty: number;
+  avg: number;
+  last?: number;
+}> = [
+  { symbol: "RELIANCE", name: "Reliance Industries", assetType: 'STOCK', qty: 46, avg: 1310.10, last: 1318.39 },
+  { symbol: "M&M", name: "Mahindra & Mahindra", assetType: 'STOCK', qty: 125, avg: 3420.32, last: 3420.32 },
+  { symbol: "QUANT-ELSS", name: "Quant ELSS Tax Saver Growth Option Direct Growth", assetType: 'MF', qty: 164.83, avg: 407.69 },
+  { symbol: "MIRAE-ELSS", name: "Mirae Asset ELSS Tax Saver", assetType: 'MF', qty: 802.41, avg: 55.85 },
+  { symbol: "AXIS-ELSS", name: "Axis ELSS Tax Saver", assetType: 'MF', qty: 484.93, avg: 109.29 },
+  { symbol: "SBI-CONTRA", name: "SBI Contra Fund Regular", assetType: 'MF', qty: 11.84, avg: 380.18 },
+  { symbol: "NIPPON-ELSS", name: "Nippon India ELSS", assetType: 'MF', qty: 33.03, avg: 144.26 },
+  { symbol: "NIPPON-MULTI", name: "Nippon India Multi Cap Grpwth", assetType: 'MF', qty: 39.26, avg: 305.66 },
 ];
 
 export const MOCK_USER_PROGRESS = {

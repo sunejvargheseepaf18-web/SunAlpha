@@ -408,9 +408,11 @@ export interface ActionAlternative {
 export interface RebalanceAction {
     id: string;
     type: 'BUY' | 'SELL';
-    symbol: string; 
+    symbol: string;
     assetClass: string;
     amount: number;
+    quantity?: number; // Exact shares/units to trade (SELLs of held assets)
+    rate?: number; // Price/NAV the quantity was computed at
     reason: string;
     taxImpact?: number;
     alternatives?: ActionAlternative[]; // New: Suggestions for substitution
