@@ -61,6 +61,27 @@ You MUST follow these rules at all times.
 
 ---
 
+## 🧭 AI Orchestration Rules (Planner / Worker)
+Expensive tokens plan. Cheap tokens type.
+
+- **Two tiers only**:
+  - PLANNER (smart model): decompose goals, write specs, judge worker output
+  - WORKER (fast model): draft, classify, summarize, explain — the bulk work
+- **Default to WORKER**. Escalate to PLANNER only for multi-step
+  decomposition or for judging worker results
+- **Spec-first delegation**: workers receive a structured brief
+  (role, one-line task, acceptance criteria, digested context) —
+  never a free-form dump (`runWorkerBrief` in services/ai/llm.ts)
+- **No raw payloads in prompts**: all context passes through `digest()`
+  (services/ai/contextDigest.ts) with an explicit character budget.
+  Full history arrays never enter a prompt
+- **One-page results**: worker output is token-capped; a planner reads
+  worker summaries, never raw transcripts or tool output
+- **Deterministic fallback stays mandatory**: every AI path must degrade
+  to rule-based logic when the API is offline (existing behavior)
+
+---
+
 ## 🧪 Testing Requirements
 - All domain engines MUST have unit tests
 - Tests must cover:

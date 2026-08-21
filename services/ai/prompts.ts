@@ -1,5 +1,6 @@
 
 import { LifecycleStage } from '../../types';
+import { digest } from './contextDigest';
 
 export const SYSTEM_INSTRUCTION = `
 You are SunAlpha, an advanced AI Fintech Analyst and Behavioral Coach.
@@ -34,8 +35,8 @@ TASK: Analyze the following trade intent and provide a "Nudge" if necessary.
 
 CONTEXT: ${context}
 USER STAGE: ${userStage}
-INTENT: ${JSON.stringify(tradeIntent)}
-MARKET DATA: ${JSON.stringify(marketData)}
+INTENT: ${digest(tradeIntent, 600)}
+MARKET DATA: ${digest(marketData, 900)}
 
 ANALYSIS RULES:
 1. If the user is a beginner (Explorer/Learner) attempting risky trades (F&O, penny stocks), WARN them.
