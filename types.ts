@@ -113,6 +113,9 @@ export interface PortfolioPosition {
   currentValue: number;
   pnl: number;
   pnlPercent: number;
+  // Pricing provenance — lets the UI show "NAV as of <date>" vs stale/fallback
+  priceSource?: 'LIVE_NAV' | 'MOCK';
+  priceAsOf?: string; // ISO date of the price/NAV used
   // Capital Intelligence
   marginUsed?: number; // How much margin this position consumes
   leverage?: number; // 1x = Cash, >1x = Margin

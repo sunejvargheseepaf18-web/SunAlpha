@@ -1,6 +1,7 @@
 
 import { StockData, MarketIndex, FundamentalData, MarketQuote, MarketPulse, OptionRadarItem, FailedSignal, MutualFundData } from '../types';
 import { detectRegime } from './regimeEngine';
+import { resolveScheme, getNavHistory } from './mfNavService';
 
 // Simulating API latency
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -98,9 +99,59 @@ export const fetchStockDetails = async (symbol: string): Promise<StockData> => {
   };
 };
 
+// Point-to-point return over `years`, from ascending NAV history. Null if the
+// history doesn't reach back far enough.
+const trailingReturn = (history: { date: string; value: number }[], years: number): number | null => {
+    if (history.length < 2) return null;
+    const cutoff = new Date();
+    cutoff.setFullYear(cutoff.getFullYear() - years);
+    const cutoffIso = cutoff.toISOString().split('T')[0];
+    const start = history.find(p => p.date >= cutoffIso);
+    if (!start || start === history[history.length - 1]) return null;
+    // If the oldest available point is much newer than the cutoff, history doesn't cover the period
+    if (start.date > cutoffIso && history[0].date > cutoffIso) return null;
+    const end = history[history.length - 1];
+    const growth = end.value / start.value;
+    const cagr = (Math.pow(growth, 1 / years) - 1) * 100;
+    return parseFloat(cagr.toFixed(1));
+};
+
 export const fetchMutualFundDetails = async (symbol: string): Promise<MutualFundData> => {
+    // Try the live AMFI feed first; fall back to simulated data offline.
+    try {
+        const scheme = await resolveScheme(symbol);
+        if (scheme) {
+            const result = await getNavHistory(scheme.schemeCode, 5 * 365);
+            if (result && result.history.length >= 2) {
+                const { meta, history } = result;
+                const currentNav = history[history.length - 1].value;
+                const prevNav = history[history.length - 2].value;
+                return {
+                    schemeCode: String(scheme.schemeCode),
+                    fundName: meta.scheme_name ?? scheme.schemeName,
+                    nav: currentNav,
+                    change: parseFloat((currentNav - prevNav).toFixed(4)),
+                    changePercent: parseFloat((((currentNav - prevNav) / prevNav) * 100).toFixed(2)),
+                    category: meta.scheme_category ?? 'N/A',
+                    risk: 'N/A', // Not provided by the AMFI feed
+                    expenseRatio: 0, // Not provided by the AMFI feed
+                    aum: meta.fund_house ?? 'N/A',
+                    minSip: 500,
+                    returns: {
+                        '1Y': trailingReturn(history, 1) ?? 0,
+                        '3Y': trailingReturn(history, 3) ?? 0,
+                        '5Y': trailingReturn(history, 5) ?? 0
+                    },
+                    history: history.slice(-365)
+                };
+            }
+        }
+    } catch {
+        // Feed unreachable — use the simulated fallback below
+    }
+
     await delay(600);
-    
+
     // Infer category from name or mock it
     const isSmallCap = symbol.includes('SMALL');
     const isDebt = symbol.includes('DEBT') || symbol.includes('LIQUID');

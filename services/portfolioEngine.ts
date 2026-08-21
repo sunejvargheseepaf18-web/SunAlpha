@@ -2,6 +2,34 @@
 import { PortfolioPosition, Insight, PortfolioHistoryPoint, ExecutionMode } from '../types';
 import { MOCK_HOLDINGS_DATA } from '../constants';
 import { getVirtualPositions, initializePaperAccount } from './paper/paperStore';
+import { getLatestNavByName } from './mfNavService';
+
+// Re-price MF positions from the live AMFI NAV feed. Positions that cannot be
+// linked (bad name match, feed unreachable) are returned unchanged so the
+// portfolio still renders — they just keep their fallback price.
+const repriceMfPositionsWithLiveNav = async (
+  positions: PortfolioPosition[]
+): Promise<PortfolioPosition[]> =>
+  Promise.all(
+    positions.map(async (pos) => {
+      if (pos.assetType !== 'MF') return pos;
+      const latest = await getLatestNavByName(pos.name || pos.symbol);
+      if (!latest) return pos;
+
+      const currentValue = pos.quantity * latest.nav;
+      return {
+        ...pos,
+        currentPrice: parseFloat(latest.nav.toFixed(4)),
+        currentValue: parseFloat(currentValue.toFixed(2)),
+        pnl: parseFloat((currentValue - pos.investedValue).toFixed(2)),
+        pnlPercent: parseFloat(
+          (((currentValue - pos.investedValue) / pos.investedValue) * 100).toFixed(2)
+        ),
+        priceSource: 'LIVE_NAV' as const,
+        priceAsOf: latest.date
+      };
+    })
+  );
 
 export const calculatePortfolio = async (mode: ExecutionMode = 'LIVE'): Promise<{
   totalValue: number;
@@ -60,6 +88,9 @@ export const calculatePortfolio = async (mode: ExecutionMode = 'LIVE'): Promise<
         };
       });
   }
+
+  // Link MF holdings to their real latest NAV (equity pricing unchanged).
+  positions = await repriceMfPositionsWithLiveNav(positions);
 
   const totalValue = positions.reduce((acc, pos) => acc + pos.currentValue, 0);
   const totalInvested = positions.reduce((acc, pos) => acc + pos.investedValue, 0);
