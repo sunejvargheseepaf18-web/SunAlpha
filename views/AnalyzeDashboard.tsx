@@ -1,7 +1,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { DonutChart, ComparisonLineChart } from '../components/Charts';
-import { calculatePortfolio, generateAIInsights, fetchPortfolioHistory } from '../services/portfolioEngine';
+import { calculatePortfolio, fetchPortfolioHistory } from '../services/portfolioEngine';
+import { getAdvisorReport, findingsToInsights, PortfolioReview } from '../services/portfolioAdvisorService';
 import { buildPortfolioAnalytics } from '../services/portfolioAnalytics';
 import { optimizePortfolio, OptimizationResult } from '../services/optimizerService';
 import { OptimizerPanel } from '../components/OptimizerPanel';
@@ -107,6 +108,8 @@ export const AnalyzeDashboard: React.FC<AnalyzeDashboardProps> = ({ initialRebal
   const [optimization, setOptimization] = useState<OptimizationResult | null>(null);
   const [income, setIncome] = useState<IncomeReport | null>(null);
   const [insights, setInsights] = useState<Insight[]>([]);
+  const [review, setReview] = useState<PortfolioReview | null>(null);
+  const [advisorNote, setAdvisorNote] = useState<string | null>(null);
   const [rebalanceSim, setRebalanceSim] = useState<RebalanceSimulation | null>(null);
 
   useEffect(() => {
@@ -119,7 +122,13 @@ export const AnalyzeDashboard: React.FC<AnalyzeDashboardProps> = ({ initialRebal
       ]);
       setPortfolio(p);
       setHistory(h);
-      setInsights(generateAIInsights());
+      // Real advisor review over the live holdings snapshot; the AI note
+      // arrives with it (null offline — the findings stand alone).
+      getAdvisorReport(p.positions).then(report => {
+        setReview(report.review);
+        setInsights(findingsToInsights(report.review));
+        setAdvisorNote(report.narrative);
+      });
 
       // Real analytics from live feed history (QuantStats-style). Replaces
       // the simulated chart and adds risk metrics when the feeds answer.
@@ -344,11 +353,40 @@ export const AnalyzeDashboard: React.FC<AnalyzeDashboardProps> = ({ initialRebal
 
                 {/* AI Insights Panel */}
                 <div className="bg-gradient-to-b from-blue-50 to-white p-6 rounded-2xl shadow-sm border border-blue-100">
-                <div className="flex items-center space-x-2 mb-6">
-                    <BrainCircuit className="text-blue-600" size={20} />
-                    <h3 className="font-bold text-gray-800">AI Intelligence</h3>
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-2">
+                        <BrainCircuit className="text-blue-600" size={20} />
+                        <h3 className="font-bold text-gray-800">Portfolio Advisor</h3>
+                    </div>
+                    {review && (
+                        <div className="flex items-center space-x-2">
+                            <span className={`text-lg font-bold font-mono ${review.healthScore >= 75 ? 'text-emerald-600' : review.healthScore >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
+                                {review.healthScore}
+                            </span>
+                            <span className={`px-2 py-0.5 text-[10px] font-bold rounded border ${
+                                review.grade === 'HEALTHY' ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                                : review.grade === 'NEEDS_ATTENTION' ? 'bg-amber-100 text-amber-700 border-amber-200'
+                                : 'bg-red-100 text-red-700 border-red-200'
+                            }`}>
+                                {review.grade.replace('_', ' ')}
+                            </span>
+                        </div>
+                    )}
                 </div>
-                
+
+                {advisorNote && (
+                    <div className="mb-4 p-3 bg-white rounded-xl border border-blue-100 text-xs text-gray-600 leading-relaxed italic">
+                        “{advisorNote}”
+                    </div>
+                )}
+
+                {review && insights.length === 0 && (
+                    <div className="mb-4 p-4 bg-white rounded-xl border border-emerald-100 text-sm text-emerald-700 flex items-center">
+                        <CheckCircle size={16} className="mr-2 flex-shrink-0" />
+                        No issues found — every advisor check passes on the current holdings.
+                    </div>
+                )}
+
                 <div className="space-y-4">
                     {insights.map((insight) => (
                     <div key={insight.id} className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm relative overflow-hidden">

@@ -1,5 +1,5 @@
 
-import { PortfolioPosition, Insight, PortfolioHistoryPoint, ExecutionMode } from '../types';
+import { PortfolioPosition, PortfolioHistoryPoint, ExecutionMode } from '../types';
 import { MOCK_HOLDINGS_DATA } from '../constants';
 import { getVirtualPositions, initializePaperAccount } from './paper/paperStore';
 import { getLatestNavByName } from './mfNavService';
@@ -242,28 +242,5 @@ export const fetchPortfolioHistory = async (months: number = 6): Promise<Portfol
   return history;
 };
 
-export const generateAIInsights = (): Insight[] => {
-  return [
-    {
-      id: '1',
-      type: 'RISK',
-      title: 'High Sector Concentration',
-      description: '65% of your equity portfolio is exposed to the Technology sector. Consider diversifying into FMCG or Pharma to lower volatility.',
-      impact: 'HIGH'
-    },
-    {
-      id: '2',
-      type: 'OPPORTUNITY',
-      title: 'Tax Harvesting',
-      description: 'You have unrealized losses in 2 holdings that could offset your short-term capital gains tax liability for this year.',
-      impact: 'MEDIUM'
-    },
-    {
-      id: '3',
-      type: 'INFO',
-      title: 'Dividend Declared',
-      description: 'Reliance Industries has declared a dividend of ₹10/share. Ex-date is next Tuesday.',
-      impact: 'LOW'
-    }
-  ];
-};
+// Portfolio insights now come from the deterministic advisor engine over the
+// real holdings snapshot — see services/portfolioAdvisorService.getAdvisorReport.
