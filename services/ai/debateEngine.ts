@@ -10,20 +10,9 @@
 import { Type } from '@google/genai';
 import { generateJSON, runWorkerBrief } from './llm';
 import { digest } from './contextDigest';
-import { MarketSignal } from '../../domain/advice/advice.types';
+import { DebateCase, DebateVerdict, MarketSignal } from '../../domain/advice/advice.types';
 
-export interface DebateCase {
-  thesis: string; // one-sentence core argument
-  points: string[]; // evidence-backed supporting points
-}
-
-export interface DebateVerdict {
-  signal: MarketSignal;
-  confidence: number; // 0-100
-  bullPoints: string[]; // strongest surviving bull arguments
-  bearPoints: string[]; // strongest surviving bear arguments
-  reasoning: string; // judge's synthesis, 2-3 sentences
-}
+export type { DebateCase, DebateVerdict };
 
 const caseSchema = {
   type: Type.OBJECT,

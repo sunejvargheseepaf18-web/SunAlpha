@@ -364,6 +364,8 @@ export interface ExploreIntelligence {
 
 // --- Asset Intelligence (Orchestrator Output) ---
 
+import type { DebateVerdict } from './domain/advice/advice.types';
+
 export interface AssetIntelligence {
   symbol: string;
   type: InstrumentType; // Added to distinguish asset classes
@@ -378,7 +380,9 @@ export interface AssetIntelligence {
   fundamental?: FAReport;
   conviction?: ConvictionReport;
   regime?: MarketRegime;
-  
+  // AI adversarial debate verdict (advisory; absent when AI is offline)
+  debate?: DebateVerdict;
+
   lastUpdated: string;
 }
 

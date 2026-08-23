@@ -2,7 +2,8 @@
 import React from 'react';
 import { PortfolioPosition } from '../types';
 import { HoldingAdvice, RedeploymentPlan } from '../domain/advice/advice.types';
-import { TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { JournalScorecard } from '../domain/advice/journal.engine';
+import { Target, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 
 // Rendering only — advice objects come in fully formed from the advice
 // engine (via portfolioEngine.getHoldingAdvices). This component never
@@ -12,6 +13,7 @@ interface HoldingsPanelProps {
   positions: PortfolioPosition[];
   advices: HoldingAdvice[];
   redeployment: RedeploymentPlan | null;
+  scorecard?: JournalScorecard | null; // feedback loop: how past advice fared
   onNavigateToAsset: (symbol: string) => void;
 }
 
@@ -27,6 +29,7 @@ export const HoldingsPanel: React.FC<HoldingsPanelProps> = ({
   positions,
   advices,
   redeployment,
+  scorecard,
   onNavigateToAsset
 }) => {
   const adviceBySymbol = new Map<string, HoldingAdvice>(advices.map(a => [a.symbol, a]));
@@ -37,7 +40,18 @@ export const HoldingsPanel: React.FC<HoldingsPanelProps> = ({
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
         <div className="flex justify-between items-center mb-4">
           <h4 className="font-bold text-gray-800">Holdings</h4>
-          <span className="text-xs text-gray-400 font-medium">{positions.length} positions</span>
+          <div className="flex items-center gap-3">
+            {scorecard && scorecard.graded > 0 && (
+              <span
+                className="flex items-center gap-1 text-xs text-gray-500 font-medium"
+                title={`${scorecard.correct}/${scorecard.graded} past advices pointed the right way`}
+              >
+                <Target size={13} className="text-indigo-500" />
+                Advice hit rate {scorecard.hitRatePct}% ({scorecard.graded} graded)
+              </span>
+            )}
+            <span className="text-xs text-gray-400 font-medium">{positions.length} positions</span>
+          </div>
         </div>
 
         <div className="divide-y divide-gray-100">

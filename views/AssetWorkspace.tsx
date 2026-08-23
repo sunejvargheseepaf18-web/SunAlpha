@@ -11,6 +11,7 @@ import { calculateEMASeries } from '../services/technicalAnalysis';
 import { AssetIntelligence, BrokerProfile, ExecutionMode } from '../types';
 import { Layers, Activity, FileText, ArrowLeft, Maximize2, Info, PieChart } from 'lucide-react';
 import { ConvictionBadge } from '../components/ConvictionBadge';
+import { DebatePanel } from '../components/DebatePanel';
 
 interface AssetWorkspaceProps {
   symbol?: string;
@@ -136,6 +137,10 @@ export const AssetWorkspace: React.FC<AssetWorkspaceProps> = ({ symbol = 'RELIAN
 
                     {activeTab === 'CHART' && intelligence.conviction && (
                         <ConvictionBadge report={intelligence.conviction} />
+                    )}
+
+                    {activeTab === 'CHART' && intelligence.debate && (
+                        <DebatePanel verdict={intelligence.debate} />
                     )}
                 </>
             )}

@@ -7,6 +7,7 @@ import { generateFundamentalReport } from './fundamentalAnalysis';
 import { generateConviction } from './convictionEngine';
 import { runMarketScans } from './scannerEngine';
 import { fetchBaskets } from './basketEngine';
+import { runBullBearDebate } from './ai/debateEngine';
 
 // Helper to determine instrument type from symbol (Mock Logic)
 const identifyInstrument = (symbol: string): InstrumentType => {
@@ -66,7 +67,17 @@ export const getAssetIntelligence = async (symbol: string): Promise<AssetIntelli
     // 3. Synthesize Conviction (The Brain)
     const conviction = generateConviction(taReport, faReport, regime);
 
-    // 4. Return Unified Intelligence Object
+    // 4. Adversarial AI debate over the same evidence (advisory).
+    //    Null when the AI is offline — the deterministic conviction stands.
+    const debate = await runBullBearDebate(symbol, {
+        price: { last: stockData.price, changePercent: stockData.changePercent },
+        technical: { score: taReport.overallScore, direction: taReport.overallDirection, summary: taReport.summary },
+        fundamental: { score: faReport.overallScore, direction: faReport.overallDirection, summary: faReport.summary },
+        regime,
+        deterministicVerdict: conviction.verdict
+    });
+
+    // 5. Return Unified Intelligence Object
     return {
         symbol: stockData.symbol,
         type: type,
@@ -76,6 +87,7 @@ export const getAssetIntelligence = async (symbol: string): Promise<AssetIntelli
         fundamental: faReport,
         conviction,
         regime,
+        debate: debate ?? undefined,
         lastUpdated: new Date().toISOString()
     };
 };

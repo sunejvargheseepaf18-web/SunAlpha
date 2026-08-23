@@ -49,6 +49,21 @@ export interface HoldingAdvice {
   plan?: TradePlan; // absent for HOLD
 }
 
+// --- Bull vs Bear debate (adversarial signal generation) ---
+
+export interface DebateCase {
+  thesis: string; // one-sentence core argument
+  points: string[]; // evidence-backed supporting points
+}
+
+export interface DebateVerdict {
+  signal: MarketSignal;
+  confidence: number; // 0-100; 50 = evenly balanced evidence
+  bullPoints: string[]; // strongest surviving bull arguments
+  bearPoints: string[]; // strongest surviving bear arguments
+  reasoning: string; // judge's synthesis, 2-3 sentences
+}
+
 // --- Redeployment of sale proceeds ---
 
 // A place freed cash could go. All market data (rates, lot sizes) comes in
