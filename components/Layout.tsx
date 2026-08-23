@@ -2,6 +2,7 @@
 import React from 'react';
 import { AppMode, AppView, ExecutionMode } from '../types';
 import { MODE_CONFIG } from '../constants';
+import { requestNotificationPermission, startAlertMonitor } from '../services/alertService';
 import { 
   LayoutDashboard, 
   PieChart, 
@@ -50,6 +51,14 @@ export const Layout: React.FC<LayoutProps> = ({
 }) => {
   const config = MODE_CONFIG[mode] || MODE_CONFIG[AppMode.DASHBOARD];
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+
+  // Background alert monitor: polls live quotes and delivers browser/in-app
+  // notifications while the app is open (Layout is always mounted).
+  React.useEffect(() => {
+    void requestNotificationPermission();
+    const stop = startAlertMonitor();
+    return stop;
+  }, []);
 
   // Dynamic sidebar styles based on mode
   const sidebarClass = {

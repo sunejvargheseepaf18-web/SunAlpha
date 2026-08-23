@@ -182,9 +182,15 @@ export interface MarketQuote {
 export interface PriceAlert {
   id: string;
   symbol: string;
-  targetPrice: number;
-  condition: 'ABOVE' | 'BELOW'; // Alert when price goes ABOVE or BELOW target
+  targetPrice: number; // 0 for PCT_MOVE alerts
+  // ABOVE/BELOW: level alerts (cooldown-limited); CROSS_*: fire on the
+  // transition through the level; PCT_MOVE: day move beyond ±pctThreshold
+  condition: 'ABOVE' | 'BELOW' | 'CROSS_ABOVE' | 'CROSS_BELOW' | 'PCT_MOVE';
   createdAt: string;
+  pctThreshold?: number;
+  triggerOnce?: boolean;
+  cooldownMinutes?: number;
+  lastTriggeredAt?: string;
 }
 
 // --- Regime Types ---
