@@ -1,5 +1,5 @@
 import { OptionChainRow, OptionContract } from '../types';
-import { getLiveOptionChain } from './derivativesFeed';
+import { getLiveChainDetail } from './derivativesFeed';
 
 const generateOptionContract = (
   strike: number, 
@@ -33,19 +33,32 @@ const generateOptionContract = (
   };
 };
 
-export const fetchOptionChain = async (symbol: string, spotPrice: number): Promise<OptionChainRow[]> => {
+export interface OptionChainView {
+  rows: OptionChainRow[];
+  expiry: string; // NSE expiry label, '' when simulated
+  asOf: string; // NSE's data timestamp, '' when simulated
+  source: 'LIVE' | 'SIMULATED'; // the UI must say which one it is
+}
+
+export const fetchOptionChainView = async (
+  symbol: string,
+  spotPrice: number
+): Promise<OptionChainView> => {
   // Live path: real NSE chain (true OI/IV/volume, Black-Scholes greeks
-  // computed from NSE's implied volatility). Falls through to the
+  // computed from NSE's implied volatility), with its real expiry and
+  // NSE's own data timestamp. Falls through to a clearly-labeled
   // simulated chain when NSE is unreachable.
-  const live = await getLiveOptionChain(symbol);
-  if (live && live.length > 0) return live;
+  const live = await getLiveChainDetail(symbol);
+  if (live && live.rows.length > 0) {
+    return { rows: live.rows, expiry: live.expiry, asOf: live.asOf, source: 'LIVE' };
+  }
 
   // Generate strikes around spot
   const step = symbol === 'NIFTY' ? 50 : symbol === 'BANKNIFTY' ? 100 : spotPrice * 0.02;
   const roundedSpot = Math.round(spotPrice / step) * step;
-  
+
   const chain: OptionChainRow[] = [];
-  
+
   // 5 strikes ITM and 5 OTM
   for (let i = -5; i <= 5; i++) {
     const strike = roundedSpot + (i * step);
@@ -55,6 +68,10 @@ export const fetchOptionChain = async (symbol: string, spotPrice: number): Promi
       pe: generateOptionContract(strike, 'PE', spotPrice)
     });
   }
-  
-  return chain;
+
+  return { rows: chain, expiry: '', asOf: '', source: 'SIMULATED' };
 };
+
+/** Rows-only view (existing callers). */
+export const fetchOptionChain = async (symbol: string, spotPrice: number): Promise<OptionChainRow[]> =>
+  (await fetchOptionChainView(symbol, spotPrice)).rows;

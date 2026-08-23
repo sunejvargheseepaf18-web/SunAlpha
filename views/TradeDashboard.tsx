@@ -3,9 +3,9 @@ import React, { useEffect, useState } from 'react';
 import { TradingViewChart } from '../components/TradingViewChart';
 import { calculateEMASeries } from '../services/technicalAnalysis';
 import { getBrokerProfile } from '../services/brokerService';
-import { fetchOptionChain } from '../services/foAnalytics';
+import { fetchOptionChainView, OptionChainView } from '../services/foAnalytics';
 import { getAssetIntelligence } from '../services/orchestrator';
-import { AssetIntelligence, BrokerProfile, OptionChainRow, OptionContract } from '../types';
+import { AssetIntelligence, BrokerProfile, OptionContract } from '../types';
 import { 
     Bell, BellRing, Activity, Layers, Eye, EyeOff, LayoutTemplate, CandlestickChart,
     BarChart2, Table, Maximize2
@@ -24,7 +24,7 @@ export const TradeDashboard = () => {
   const [intelligence, setIntelligence] = useState<AssetIntelligence | null>(null);
   const [emaData, setEmaData] = useState<any[]>([]);
   const [broker, setBroker] = useState<BrokerProfile | null>(null);
-  const [optionChain, setOptionChain] = useState<OptionChainRow[]>([]);
+  const [optionChain, setOptionChain] = useState<OptionChainView | null>(null);
   
   // View Controls
   const [tradeMode, setTradeMode] = useState<'EQUITY' | 'FNO'>('EQUITY');
@@ -68,7 +68,7 @@ export const TradeDashboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       setIntelligence(null);
-      setOptionChain([]);
+      setOptionChain(null);
       setHasActiveAlerts(false);
       
       try {
@@ -90,7 +90,7 @@ export const TradeDashboard = () => {
         }
 
         if (tradeMode === 'FNO') {
-            const chain = await fetchOptionChain(selectedSymbol, intel.price);
+            const chain = await fetchOptionChainView(selectedSymbol, intel.price);
             setOptionChain(chain);
         }
 
@@ -231,11 +231,14 @@ export const TradeDashboard = () => {
               {/* Bottom Panel: Option Chain OR Context */}
               <div className="h-64 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                    {tradeMode === 'FNO' ? (
-                       <OptionChain 
-                          data={optionChain} 
-                          spotPrice={intelligence.price} 
+                       <OptionChain
+                          data={optionChain?.rows ?? []}
+                          spotPrice={intelligence.price}
                           symbol={intelligence.symbol}
                           onSelectContract={handleOptionSelect}
+                          expiry={optionChain?.expiry}
+                          asOf={optionChain?.asOf}
+                          source={optionChain?.source}
                        />
                    ) : (
                        <div className="p-6">

@@ -33,6 +33,7 @@ export const HoldingsPanel: React.FC<HoldingsPanelProps> = ({
   onNavigateToAsset
 }) => {
   const adviceBySymbol = new Map<string, HoldingAdvice>(advices.map(a => [a.symbol, a]));
+  const totalValue = positions.reduce((s, p) => s + p.currentValue, 0);
 
   return (
     <div className="space-y-6">
@@ -54,40 +55,85 @@ export const HoldingsPanel: React.FC<HoldingsPanelProps> = ({
           </div>
         </div>
 
+        {/* Column header (md+) — broker-style: Avg, LTP, Day, Invested, P&L, Weight, Value */}
+        <div className="hidden md:grid grid-cols-12 gap-2 pb-2 border-b border-gray-200 text-[10px] font-bold uppercase tracking-wide text-gray-400">
+          <div className="col-span-3">Instrument</div>
+          <div className="col-span-1 text-right">Qty</div>
+          <div className="col-span-1 text-right">Avg</div>
+          <div className="col-span-1 text-right">LTP</div>
+          <div className="col-span-1 text-right" title="Today's P&L (quantity × day change)">Day</div>
+          <div className="col-span-2 text-right">Invested</div>
+          <div className="col-span-1 text-right">P&L</div>
+          <div className="col-span-1 text-right" title="Share of portfolio value">Wt%</div>
+          <div className="col-span-1 text-right">Value</div>
+        </div>
+
         <div className="divide-y divide-gray-100">
           {positions.map(pos => {
             const advice = adviceBySymbol.get(pos.symbol);
+            const weightPct = totalValue > 0 ? (pos.currentValue / totalValue) * 100 : 0;
             return (
-              <div key={pos.id} className="py-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
+              <div key={pos.id} className="py-3">
+                <div className="grid grid-cols-2 md:grid-cols-12 gap-2 items-center">
                   <div
-                    className="cursor-pointer"
+                    className="col-span-2 md:col-span-3 cursor-pointer min-w-0"
                     onClick={() => onNavigateToAsset(pos.symbol)}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-gray-800">{pos.name}</span>
-                      <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border border-gray-200 text-gray-500">
+                      <span className="font-bold text-gray-800 text-sm truncate">{pos.name}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border border-gray-200 text-gray-500 shrink-0">
                         {pos.assetType === 'MF' ? 'MF' : pos.assetType === 'CRYPTO' ? 'Crypto' : 'Equity'}
                       </span>
                     </div>
-                    <div className="text-xs text-gray-400 mt-0.5 font-mono">
-                      {pos.quantity} × ₹{pos.currentPrice.toLocaleString('en-IN')}
+                    <div className="text-[10px] text-gray-400 mt-0.5">
                       {pos.priceSource === 'LIVE_NAV' && pos.priceAsOf && (
-                        <span className="ml-2 text-emerald-500">NAV as of {pos.priceAsOf}</span>
+                        <span className="text-emerald-500">NAV as of {pos.priceAsOf}</span>
                       )}
                       {pos.priceSource === 'LIVE_QUOTE' && (
-                        <span className="ml-2 text-emerald-500">live quote</span>
+                        <span className="text-emerald-500">live quote</span>
                       )}
+                      {!pos.priceSource && <span>last known price</span>}
                     </div>
                   </div>
 
-                  <div className="text-right">
-                    <div className="font-mono font-bold text-gray-800">{inr(pos.currentValue)}</div>
-                    <div
-                      className={`text-xs font-mono ${pos.pnl >= 0 ? 'text-emerald-600' : 'text-red-600'}`}
-                    >
-                      {pos.pnl >= 0 ? '+' : ''}
-                      {pos.pnlPercent.toFixed(1)}%
+                  <div className="hidden md:block md:col-span-1 text-right font-mono text-xs text-gray-600">
+                    {pos.quantity}
+                  </div>
+                  <div className="hidden md:block md:col-span-1 text-right font-mono text-xs text-gray-600">
+                    {pos.avgPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                  </div>
+                  <div className="hidden md:block md:col-span-1 text-right font-mono text-xs text-gray-800 font-medium">
+                    {pos.currentPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                  </div>
+                  <div className="hidden md:block md:col-span-1 text-right font-mono text-xs">
+                    {pos.dayPnl !== undefined ? (
+                      <span className={pos.dayPnl >= 0 ? 'text-emerald-600' : 'text-red-600'}>
+                        {pos.dayPnl >= 0 ? '+' : ''}{inr(pos.dayPnl).replace('₹', '')}
+                      </span>
+                    ) : (
+                      <span className="text-gray-300" title="No intraday mark for this asset (MF NAVs are daily)">—</span>
+                    )}
+                  </div>
+                  <div className="hidden md:block md:col-span-2 text-right font-mono text-xs text-gray-500">
+                    {inr(pos.investedValue)}
+                  </div>
+                  <div className="hidden md:block md:col-span-1 text-right font-mono text-xs">
+                    <span className={pos.pnl >= 0 ? 'text-emerald-600' : 'text-red-600'}>
+                      {pos.pnl >= 0 ? '+' : ''}{pos.pnlPercent.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="hidden md:block md:col-span-1 text-right font-mono text-xs text-gray-500">
+                    {weightPct.toFixed(1)}
+                  </div>
+                  <div className="col-span-2 md:col-span-1 flex md:block items-center justify-between text-right">
+                    <span className="md:hidden text-xs text-gray-400 font-mono">
+                      {pos.quantity} × ₹{pos.currentPrice.toLocaleString('en-IN')}
+                    </span>
+                    <div>
+                      <div className="font-mono font-bold text-gray-800 text-sm">{inr(pos.currentValue)}</div>
+                      <div className={`md:hidden text-xs font-mono ${pos.pnl >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {pos.pnl >= 0 ? '+' : ''}{pos.pnlPercent.toFixed(1)}%
+                      </div>
                     </div>
                   </div>
                 </div>
