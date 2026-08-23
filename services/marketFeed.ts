@@ -36,6 +36,7 @@ const SYMBOL_OVERRIDES: Record<string, string> = {
   SENSEX: '^BSESN',
   BANKNIFTY: '^NSEBANK',
   NASDAQ: '^IXIC',
+  'INDIA VIX': '^INDIAVIX',
   // Crypto pairs quote in INR on Yahoo (CoinGecko is the primary feed)
   BTC: 'BTC-INR',
   ETH: 'ETH-INR',

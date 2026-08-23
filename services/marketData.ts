@@ -277,16 +277,63 @@ export const fetchFundamentalDetails = async (symbol: string): Promise<Fundament
 
 // --- Situation Awareness Data ---
 
+// Liquid names with sector labels — breadth and rotation are COMPUTED from
+// their live day changes, not asserted.
+const PULSE_UNIVERSE: Array<{ symbol: string; sector: string }> = [
+    { symbol: 'RELIANCE', sector: 'Energy' },
+    { symbol: 'TCS', sector: 'IT' },
+    { symbol: 'INFY', sector: 'IT' },
+    { symbol: 'HDFCBANK', sector: 'Banks' },
+    { symbol: 'ICICIBANK', sector: 'Banks' },
+    { symbol: 'SBIN', sector: 'Banks' },
+    { symbol: 'TATAMOTORS', sector: 'Auto' },
+    { symbol: 'M&M', sector: 'Auto' },
+    { symbol: 'MARUTI', sector: 'Auto' },
+    { symbol: 'TATASTEEL', sector: 'Metals' },
+    { symbol: 'LT', sector: 'Infra' },
+    { symbol: 'ITC', sector: 'FMCG' }
+];
+
 export const fetchMarketPulse = async (): Promise<MarketPulse> => {
-    const nifty = await fetchStockDetails('NIFTY 50');
+    const [nifty, vixQuote, universeQuotes] = await Promise.all([
+        fetchStockDetails('NIFTY 50'),
+        getLiveQuote('INDIA VIX'),
+        getLiveQuotes(PULSE_UNIVERSE.map(u => u.symbol))
+    ]);
     const regime = detectRegime(nifty);
-    
+
+    // Breadth: advancers vs decliners across the live universe.
+    let advanceDeclineRatio = 1.0; // neutral fallback when quotes are unreachable
+    let topSector = 'N/A';
+    let laggardSector = 'N/A';
+    const answered = PULSE_UNIVERSE.filter(u => universeQuotes.has(u.symbol));
+    if (answered.length >= 6) {
+        const advancers = answered.filter(u => (universeQuotes.get(u.symbol)!.changePercent ?? 0) > 0).length;
+        const decliners = answered.length - advancers;
+        advanceDeclineRatio = parseFloat((advancers / Math.max(1, decliners)).toFixed(1));
+
+        // Sector rotation: average day change per sector, best vs worst.
+        const bySector = new Map<string, number[]>();
+        for (const u of answered) {
+            const change = universeQuotes.get(u.symbol)!.changePercent ?? 0;
+            bySector.set(u.sector, [...(bySector.get(u.sector) ?? []), change]);
+        }
+        const ranked = [...bySector.entries()]
+            .map(([sector, changes]) => ({ sector, avg: changes.reduce((s, c) => s + c, 0) / changes.length }))
+            .sort((a, b) => b.avg - a.avg);
+        if (ranked.length >= 2) {
+            topSector = ranked[0].sector;
+            laggardSector = ranked[ranked.length - 1].sector;
+        }
+    }
+
     return {
         regime,
-        advanceDeclineRatio: 1.4, // 1.4 stocks up for every 1 down
-        topSector: 'Auto',
-        laggardSector: 'IT',
-        vix: 13.5
+        advanceDeclineRatio,
+        topSector,
+        laggardSector,
+        // Live India VIX (^INDIAVIX); 0 = unavailable, the UI shows a dash.
+        vix: vixQuote ? parseFloat(vixQuote.price.toFixed(2)) : 0
     };
 };
 

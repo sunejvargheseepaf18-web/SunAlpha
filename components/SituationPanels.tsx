@@ -28,10 +28,10 @@ export const MarketStateCard: React.FC<{ pulse: MarketPulse }> = ({ pulse }) => 
             <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-1">India VIX</p>
             <div className="flex items-center">
                 <span className={`text-xl font-bold ${pulse.vix > 20 ? 'text-red-400' : 'text-slate-200'}`}>
-                    {pulse.vix.toFixed(1)}
+                    {pulse.vix > 0 ? pulse.vix.toFixed(1) : '—'}
                 </span>
                 <span className="text-xs text-slate-400 ml-2">
-                    {pulse.vix > 15 ? 'High Volatility' : 'Stable'}
+                    {pulse.vix === 0 ? 'Feed offline' : pulse.vix > 15 ? 'High Volatility' : 'Stable'}
                 </span>
             </div>
         </div>

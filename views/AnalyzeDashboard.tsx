@@ -177,12 +177,23 @@ export const AnalyzeDashboard: React.FC<AnalyzeDashboardProps> = ({ initialRebal
 
   if (!portfolio) return <div className="p-8 text-blue-600 animate-pulse">Analyzing portfolio...</div>;
 
-  const allocationData = [
-    { name: 'Equity', value: 65 },
-    { name: 'Debt', value: 25 },
-    { name: 'Gold', value: 5 },
-    { name: 'Cash', value: 5 },
-  ];
+  // Real allocation from the live-priced positions (was a hardcoded 65/25/5/5)
+  const valueByClass = new Map<string, number>();
+  for (const pos of portfolio.positions as { assetType: string; currentValue: number }[]) {
+    const label =
+      pos.assetType === 'MF' ? 'Mutual Funds'
+      : pos.assetType === 'CRYPTO' ? 'Crypto'
+      : pos.assetType === 'GOLD' ? 'Gold'
+      : 'Equity';
+    valueByClass.set(label, (valueByClass.get(label) ?? 0) + pos.currentValue);
+  }
+  const allocationData = [...valueByClass.entries()]
+    .map(([name, value]) => ({
+      name,
+      value: portfolio.totalValue > 0 ? parseFloat(((value / portfolio.totalValue) * 100).toFixed(1)) : 0
+    }))
+    .sort((a, b) => b.value - a.value);
+  const totalPnlPct = portfolio.totalInvested > 0 ? (portfolio.totalPnl / portfolio.totalInvested) * 100 : 0;
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -276,27 +287,40 @@ export const AnalyzeDashboard: React.FC<AnalyzeDashboardProps> = ({ initialRebal
             {/* Header Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-white p-5 rounded-xl shadow-sm border border-blue-100">
-                <p className="text-xs text-gray-500 font-semibold uppercase">Net Worth</p>
-                <h3 className="text-2xl font-bold text-gray-900 mt-1">₹{(portfolio.totalValue + 1500000).toLocaleString()}</h3>
-                <p className="text-xs text-blue-600 mt-2 font-medium">+12% vs last year</p>
+                <p className="text-xs text-gray-500 font-semibold uppercase">Portfolio Value</p>
+                <h3 className="text-2xl font-bold text-gray-900 mt-1">₹{Math.round(portfolio.totalValue).toLocaleString('en-IN')}</h3>
+                <p className={`text-xs mt-2 font-medium ${portfolio.totalPnl >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {portfolio.totalPnl >= 0 ? '+' : ''}₹{Math.round(portfolio.totalPnl).toLocaleString('en-IN')} all-time
+                </p>
                 </div>
                 <div className="bg-white p-5 rounded-xl shadow-sm border border-blue-100">
-                <p className="text-xs text-gray-500 font-semibold uppercase">Portfolio XIRR</p>
-                <h3 className="text-2xl font-bold text-emerald-600 mt-1">18.4%</h3>
-                <p className="text-xs text-gray-400 mt-2">Beating NIFTY 50 (14.2%)</p>
+                <p className="text-xs text-gray-500 font-semibold uppercase">{perfMetrics?.cagrPct != null ? 'Portfolio CAGR' : 'Total Return'}</p>
+                <h3 className={`text-2xl font-bold mt-1 ${(perfMetrics?.cagrPct ?? totalPnlPct) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {(perfMetrics?.cagrPct ?? totalPnlPct) >= 0 ? '+' : ''}{(perfMetrics?.cagrPct ?? totalPnlPct).toFixed(1)}%
+                </h3>
+                <p className="text-xs text-gray-400 mt-2">
+                    {perfMetrics?.cagrPct != null ? 'Annualized, from live price history' : 'On invested capital'}
+                </p>
                 </div>
                 <div className="bg-white p-5 rounded-xl shadow-sm border border-blue-100">
-                <p className="text-xs text-gray-500 font-semibold uppercase">Realized P&L (FY)</p>
-                <h3 className="text-2xl font-bold text-gray-900 mt-1">₹45,230</h3>
-                <p className="text-xs text-gray-400 mt-2">Tax Liability: ~₹4,500</p>
+                <p className="text-xs text-gray-500 font-semibold uppercase">Day P&L</p>
+                <h3 className={`text-2xl font-bold mt-1 ${portfolio.dayPnl >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {portfolio.dayPnl >= 0 ? '+' : ''}₹{Math.round(portfolio.dayPnl).toLocaleString('en-IN')}
+                </h3>
+                <p className="text-xs text-gray-400 mt-2">From live day changes (MF NAVs are daily)</p>
                 </div>
                 <div className="bg-white p-5 rounded-xl shadow-sm border border-blue-100">
                 <p className="text-xs text-gray-500 font-semibold uppercase">Health Score</p>
                 <div className="flex items-center mt-1">
-                    <h3 className="text-2xl font-bold text-blue-600">85</h3>
+                    <h3 className={`text-2xl font-bold ${review && review.healthScore < 50 ? 'text-red-600' : review && review.healthScore < 75 ? 'text-amber-600' : 'text-blue-600'}`}>
+                        {review ? review.healthScore : '—'}
+                    </h3>
                     <span className="text-gray-400 text-lg font-light">/100</span>
                 </div>
-                <p className="text-xs text-emerald-600 mt-2 flex items-center"><CheckCircle size={12} className="mr-1"/> Good Diversification</p>
+                <p className="text-xs text-gray-500 mt-2 flex items-center">
+                    <CheckCircle size={12} className="mr-1"/>
+                    {review ? review.grade.replace('_', ' ') : 'Advisor running…'}
+                </p>
                 </div>
             </div>
 
@@ -428,8 +452,8 @@ export const AnalyzeDashboard: React.FC<AnalyzeDashboardProps> = ({ initialRebal
                     {/* Center Text Overlay */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none pb-8">
                         <div className="text-center">
-                            <p className="text-xs text-gray-400">Equity</p>
-                            <p className="text-xl font-bold text-gray-800">65%</p>
+                            <p className="text-xs text-gray-400">{allocationData[0]?.name ?? 'Equity'}</p>
+                            <p className="text-xl font-bold text-gray-800">{(allocationData[0]?.value ?? 0).toFixed(0)}%</p>
                         </div>
                     </div>
                 </div>
