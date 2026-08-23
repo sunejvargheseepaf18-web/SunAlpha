@@ -160,25 +160,11 @@ export const calculatePortfolio = async (mode: ExecutionMode = 'LIVE'): Promise<
   let positions: PortfolioPosition[] = [];
 
   if (mode === 'PAPER') {
-      // Ensure store is ready
+      // Ensure store is ready. Positions come out at cost; the live
+      // repricing below marks them to real market quotes (Alpaca paper
+      // principle: real prices, simulated fills — no fake fluctuations).
       await initializePaperAccount();
-      const rawPositions = getVirtualPositions();
-      
-      // For paper, we want real-ish data but stable for the session unless updated
-      positions = await Promise.all(rawPositions.map(async (p) => {
-          // Stable fluctuation based on symbol char code
-          const seed = p.symbol.charCodeAt(0);
-          const fluctuation = (seed % 10 - 5); 
-          const currentPrice = p.avgPrice + (p.avgPrice * 0.05) + fluctuation; 
-          
-          return {
-              ...p,
-              currentPrice: parseFloat(currentPrice.toFixed(2)),
-              currentValue: parseFloat((p.quantity * currentPrice).toFixed(2)),
-              pnl: parseFloat(((currentPrice - p.avgPrice) * p.quantity).toFixed(2)),
-              pnlPercent: parseFloat((((currentPrice - p.avgPrice) / p.avgPrice) * 100).toFixed(2))
-          };
-      }));
+      positions = getVirtualPositions();
 
   } else {
       // LIVE MODE — dummy holdings snapshot; equities priced at their last
