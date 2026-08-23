@@ -16,6 +16,18 @@ export default defineConfig(({ mode }) => {
             changeOrigin: true,
             rewrite: (p) => p.replace(/^\/yahoo-api/, ''),
           },
+          // Broker APIs (services/brokers/brokerAdapters.ts). Neither sends
+          // browser CORS headers; auth headers pass through per-request.
+          '/kite-api': {
+            target: 'https://api.kite.trade',
+            changeOrigin: true,
+            rewrite: (p) => p.replace(/^\/kite-api/, ''),
+          },
+          '/upstox-api': {
+            target: 'https://api.upstox.com',
+            changeOrigin: true,
+            rewrite: (p) => p.replace(/^\/upstox-api/, ''),
+          },
           // News headlines (services/newsService.ts). Google News RSS sends
           // no CORS headers, so the dev server relays it.
           '/gnews-api': {
