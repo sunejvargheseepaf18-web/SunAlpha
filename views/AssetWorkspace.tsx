@@ -12,6 +12,7 @@ import { AssetIntelligence, BrokerProfile, ExecutionMode } from '../types';
 import { Layers, Activity, FileText, ArrowLeft, Maximize2, Info, PieChart } from 'lucide-react';
 import { ConvictionBadge } from '../components/ConvictionBadge';
 import { DebatePanel } from '../components/DebatePanel';
+import { BacktestPanel } from '../components/BacktestPanel';
 
 interface AssetWorkspaceProps {
   symbol?: string;
@@ -128,7 +129,10 @@ export const AssetWorkspace: React.FC<AssetWorkspaceProps> = ({ symbol = 'RELIAN
                     )}
                     
                     {activeTab === 'TECHNICAL' && intelligence.technical && (
-                        <TechnicalAnalysis report={intelligence.technical} />
+                        <>
+                            <TechnicalAnalysis report={intelligence.technical} />
+                            <BacktestPanel symbol={intelligence.symbol} />
+                        </>
                     )}
 
                     {activeTab === 'FUNDAMENTAL' && intelligence.fundamental && (
