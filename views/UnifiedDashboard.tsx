@@ -8,6 +8,7 @@ import { calculateCapitalSnapshot } from '../services/capitalEngine';
 import { getBrokerProfile } from '../services/brokerService';
 import { HoldingsPanel } from '../components/HoldingsPanel';
 import { TradeJournalPanel } from '../components/TradeJournalPanel';
+import { LearnPanel } from '../components/LearnPanel';
 import { recordAdvices, gradeJournal } from '../services/adviceJournal';
 import { JournalScorecard } from '../domain/advice/journal.engine';
 import { HoldingAdvice, RedeploymentPlan } from '../domain/advice/advice.types';
@@ -207,6 +208,9 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
 
       {/* 4. Trading journal scorecard (paper sells auto-journal) */}
       <TradeJournalPanel />
+
+      {/* 5. Staged curriculum with inline quizzes */}
+      <LearnPanel stage={userProfile?.stage ?? LifecycleStage.EXPLORER} />
     </div>
   );
 };

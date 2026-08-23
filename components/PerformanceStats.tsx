@@ -1,18 +1,25 @@
 
 import React from 'react';
 import { PerformanceMetrics } from '../domain/analytics/performance.engine';
+import { GLOSSARY } from '../domain/education/education.content';
 import { Gauge } from 'lucide-react';
 
 // Rendering only — the QuantStats-style metric strip computed by the pure
-// performance engine from real feed history.
+// performance engine from real feed history. Labels carry glossary
+// definitions (native tooltips) so every metric explains itself.
+
+const tipFor = (label: string): string | undefined => {
+  const key = Object.keys(GLOSSARY).find(term => label.toLowerCase().includes(term.toLowerCase()));
+  return key ? GLOSSARY[key] : undefined;
+};
 
 const Tile: React.FC<{ label: string; value: string; tone?: 'pos' | 'neg' | 'neutral' }> = ({
   label,
   value,
   tone = 'neutral'
 }) => (
-  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm text-center">
-    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">{label}</p>
+  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm text-center" title={tipFor(label)}>
+    <p className={`text-[10px] text-gray-500 uppercase font-bold tracking-wide ${tipFor(label) ? 'cursor-help underline decoration-dotted decoration-gray-300 underline-offset-2' : ''}`}>{label}</p>
     <p
       className={`font-bold mt-1 font-mono ${
         tone === 'pos' ? 'text-emerald-600' : tone === 'neg' ? 'text-red-600' : 'text-gray-800'
