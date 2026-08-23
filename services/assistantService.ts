@@ -12,7 +12,8 @@ import { getLiveQuote } from './marketFeed';
 import { runMarketScans } from './scannerEngine';
 import { getAlerts } from './alertService';
 import { fetchMarketPulse } from './marketData';
-import { generateText } from './ai/llm';
+import { generateText, runToolLoop, AgentTool } from './ai/llm';
+import { Type } from '@google/genai';
 import { digest } from './ai/contextDigest';
 import { getActiveHoldingsData } from './portfolioIoService';
 
@@ -131,7 +132,60 @@ const answerRegime = async (): Promise<string> => {
   return `NIFTY regime: ${r.trend.replace(/_/g, ' ')} / ${r.volatility.replace(/_/g, ' ')} (confidence ${(r.confidence * 100).toFixed(0)}%). ${r.summary}`;
 };
 
+// Read-only tools for the agentic loop: each wraps a deterministic answer
+// path above, so the model composes REAL data instead of receiving one
+// pre-digested blob. Nothing here can mutate state or place orders.
+const AGENT_TOOLS: AgentTool[] = [
+  {
+    name: 'get_portfolio',
+    description: 'Current portfolio: total value, invested, P&L, best and worst holding.',
+    execute: () => answerPortfolio()
+  },
+  {
+    name: 'get_holding_advice',
+    description: 'Exact-quantity recommendations for the holdings (optionally one symbol).',
+    parameters: {
+      type: Type.OBJECT,
+      properties: { symbol: { type: Type.STRING, description: 'Optional holding symbol' } }
+    },
+    execute: args => answerAdvice(typeof args.symbol === 'string' ? args.symbol.toUpperCase() : undefined)
+  },
+  {
+    name: 'get_quote',
+    description: 'Live price for one symbol (NSE stock, index, or crypto).',
+    parameters: {
+      type: Type.OBJECT,
+      properties: { symbol: { type: Type.STRING } },
+      required: ['symbol']
+    },
+    execute: args => answerQuote(typeof args.symbol === 'string' ? args.symbol.toUpperCase() : undefined)
+  },
+  {
+    name: 'get_market_scans',
+    description: 'Strongest current market setups from the live screener (incl. OI signals).',
+    execute: () => answerScans()
+  },
+  {
+    name: 'get_market_regime',
+    description: 'Current NIFTY market regime: trend, volatility state, confidence.',
+    execute: () => answerRegime()
+  },
+  {
+    name: 'get_tax_position',
+    description: 'Loss-harvest candidates and tax pointers for the current holdings.',
+    execute: () => answerTax()
+  }
+];
+
 const answerAi = async (question: string): Promise<string> => {
+  // Agentic path first: the model pulls exactly the real data it needs via
+  // read-only tools (Gemini function calling), bounded to 3 rounds.
+  const agentAnswer = await runToolLoop(question, AGENT_TOOLS);
+  if (agentAnswer) return agentAnswer;
+  return answerAiOneShot(question);
+};
+
+const answerAiOneShot = async (question: string): Promise<string> => {
   const p = await calculatePortfolio();
   const context = digest(
     {

@@ -55,5 +55,11 @@ export const DebatePanel: React.FC<{ verdict: DebateVerdict }> = ({ verdict }) =
     <p className="text-xs text-gray-500 mt-4 leading-relaxed">
       <span className="font-bold text-gray-600">Judge:</span> {verdict.reasoning}
     </p>
+
+    {verdict.riskNote && (
+      <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-2 leading-relaxed">
+        <span className="font-bold">Risk officer:</span> {verdict.riskNote}
+      </p>
+    )}
   </div>
 );

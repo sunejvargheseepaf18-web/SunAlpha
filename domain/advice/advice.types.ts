@@ -62,6 +62,9 @@ export interface DebateVerdict {
   bullPoints: string[]; // strongest surviving bull arguments
   bearPoints: string[]; // strongest surviving bear arguments
   reasoning: string; // judge's synthesis, 2-3 sentences
+  // Set when the deterministic risk gate tightened this verdict
+  // (TradingAgents' risk-team lane): why, and what it reduced.
+  riskNote?: string;
 }
 
 // --- Redeployment of sale proceeds ---

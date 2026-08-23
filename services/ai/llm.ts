@@ -113,6 +113,84 @@ export interface WorkerBrief {
     context: Record<string, string>; // values already passed through digest()
 }
 
+/**
+ * Agentic tool loop (Gemini function calling): the model may call the
+ * registered read-only tools, sees their results, and answers from them.
+ * Bounded rounds — a loop that hasn't answered by then returns null and
+ * the caller falls back. Tools are the ONLY source of numbers: the system
+ * instruction forbids inventing data, and every tool is read-only by
+ * construction (AGENT_RULES: the AI never places orders).
+ */
+export interface AgentTool {
+  name: string;
+  description: string;
+  parameters?: Record<string, unknown>; // Gemini Type schema
+  execute: (args: Record<string, unknown>) => Promise<string>;
+}
+
+export async function runToolLoop(
+  question: string,
+  tools: AgentTool[],
+  maxRounds = 3
+): Promise<string | null> {
+  if (!ai) return null;
+  try {
+    const functionDeclarations = tools.map(({ name, description, parameters }) => ({
+      name,
+      description,
+      parameters
+    }));
+    const contents: any[] = [{ role: 'user', parts: [{ text: question }] }];
+
+    for (let round = 0; round < maxRounds + 1; round++) {
+      const response = await ai.models.generateContent({
+        model: MODEL_BY_ROLE.WORKER,
+        contents,
+        config: {
+          systemInstruction:
+            SYSTEM_INSTRUCTION +
+            '\nAnswer ONLY from tool results — never invent holdings, prices or numbers.' +
+            ' You are advisory: you cannot place, modify or suggest executing orders directly.' +
+            ' Keep the final answer under 120 words.',
+          tools: [{ functionDeclarations }],
+          temperature: 0.2,
+          maxOutputTokens: OUTPUT_TOKEN_BUDGET.WORKER
+        }
+      });
+
+      const calls = response.functionCalls;
+      if (!calls || calls.length === 0) return response.text || null;
+      if (round === maxRounds) break; // out of budget mid-conversation
+
+      // Echo the model's tool-call turn, then answer each call.
+      const modelParts = (response as any).candidates?.[0]?.content?.parts;
+      contents.push({
+        role: 'model',
+        parts: modelParts ?? calls.map(c => ({ functionCall: c }))
+      });
+      const results = await Promise.all(
+        calls.map(async call => {
+          const tool = tools.find(t => t.name === call.name);
+          let result: string;
+          try {
+            result = tool
+              ? await tool.execute((call.args ?? {}) as Record<string, unknown>)
+              : `Unknown tool: ${call.name}`;
+          } catch {
+            result = `Tool ${call.name} failed — data unavailable right now.`;
+          }
+          return { functionResponse: { name: call.name, response: { result } } };
+        })
+      );
+      contents.push({ role: 'user', parts: results });
+    }
+    return null;
+  } catch (e) {
+    console.error('Tool loop error:', e);
+    return null;
+  }
+}
+
 export async function runWorkerBrief<T>(
     brief: WorkerBrief,
     responseSchema?: any

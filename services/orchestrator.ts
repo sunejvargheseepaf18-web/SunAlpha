@@ -12,6 +12,7 @@ import { getSymbolLessonsText } from './lessonMemory';
 import { getSymbolNews } from './newsService';
 import { getEsgScores } from './fundamentalsFeed';
 import { computeQualityScore } from '../domain/fundamentals/quality.engine';
+import { assessRisk, applyRiskGate } from '../domain/agent/riskGate.engine';
 
 // Helper to determine instrument type from symbol (Mock Logic)
 const identifyInstrument = (symbol: string): InstrumentType => {
@@ -78,7 +79,7 @@ export const getAssetIntelligence = async (symbol: string): Promise<AssetIntelli
     //    The reflection loop feeds in the deterministic track record of past
     //    advice on this symbol. Null when the AI is offline — the
     //    deterministic conviction stands.
-    const debate = await runBullBearDebate(
+    const rawDebate = await runBullBearDebate(
         symbol,
         {
             price: { last: stockData.price, changePercent: stockData.changePercent },
@@ -97,6 +98,13 @@ export const getAssetIntelligence = async (symbol: string): Promise<AssetIntelli
         },
         getSymbolLessonsText(symbol, stockData.price)
     );
+
+    // 4b. Risk gate (TradingAgents' risk-team lane, deterministic): the
+    //     regime facts can only make the debate verdict MORE conservative —
+    //     downgrade buy-side signals, cap confidence — never upgrade it.
+    const debate = rawDebate
+        ? applyRiskGate(rawDebate, assessRisk({ trend: regime.trend, volatility: regime.volatility }))
+        : rawDebate;
 
     // 5. Return Unified Intelligence Object
     return {
