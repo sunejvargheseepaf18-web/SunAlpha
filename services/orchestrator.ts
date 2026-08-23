@@ -9,6 +9,7 @@ import { runMarketScans } from './scannerEngine';
 import { fetchBaskets } from './basketEngine';
 import { runBullBearDebate } from './ai/debateEngine';
 import { getSymbolLessonsText } from './lessonMemory';
+import { getSymbolNews } from './newsService';
 
 // Helper to determine instrument type from symbol (Mock Logic)
 const identifyInstrument = (symbol: string): InstrumentType => {
@@ -54,10 +55,11 @@ export const getAssetIntelligence = async (symbol: string): Promise<AssetIntelli
 
     // C. STOCK / ETF PATH (Standard Intelligence)
     
-    // 1. Parallel Fetching of Raw Data
-    const [stockData, fundamentalData] = await Promise.all([
+    // 1. Parallel Fetching of Raw Data (news is best-effort — null offline)
+    const [stockData, fundamentalData, news] = await Promise.all([
         fetchStockDetails(symbol),
-        fetchFundamentalDetails(symbol)
+        fetchFundamentalDetails(symbol),
+        getSymbolNews(symbol)
     ]);
 
     // 2. Run Intelligence Engines
@@ -79,7 +81,15 @@ export const getAssetIntelligence = async (symbol: string): Promise<AssetIntelli
             technical: { score: taReport.overallScore, direction: taReport.overallDirection, summary: taReport.summary },
             fundamental: { score: faReport.overallScore, direction: faReport.overallDirection, summary: faReport.summary },
             regime,
-            deterministicVerdict: conviction.verdict
+            deterministicVerdict: conviction.verdict,
+            // Sentiment analyst lane: lexicon-scored headlines as evidence
+            newsSentiment: news
+                ? {
+                      label: news.sentiment.label,
+                      score: news.sentiment.score,
+                      headlines: news.items.slice(0, 6).map(i => i.title)
+                  }
+                : 'unavailable'
         },
         getSymbolLessonsText(symbol, stockData.price)
     );
@@ -95,6 +105,7 @@ export const getAssetIntelligence = async (symbol: string): Promise<AssetIntelli
         conviction,
         regime,
         debate: debate ?? undefined,
+        news: news ?? undefined,
         lastUpdated: new Date().toISOString()
     };
 };

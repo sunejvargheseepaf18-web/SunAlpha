@@ -16,6 +16,13 @@ export default defineConfig(({ mode }) => {
             changeOrigin: true,
             rewrite: (p) => p.replace(/^\/yahoo-api/, ''),
           },
+          // News headlines (services/newsService.ts). Google News RSS sends
+          // no CORS headers, so the dev server relays it.
+          '/gnews-api': {
+            target: 'https://news.google.com',
+            changeOrigin: true,
+            rewrite: (p) => p.replace(/^\/gnews-api/, ''),
+          },
           // Live option chains (services/derivativesFeed.ts). NSE requires
           // browser-like headers + a cookie session and has no CORS.
           '/nse-api': {

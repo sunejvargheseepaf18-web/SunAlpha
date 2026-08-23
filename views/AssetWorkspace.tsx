@@ -13,6 +13,7 @@ import { Layers, Activity, FileText, ArrowLeft, Maximize2, Info, PieChart } from
 import { ConvictionBadge } from '../components/ConvictionBadge';
 import { DebatePanel } from '../components/DebatePanel';
 import { BacktestPanel } from '../components/BacktestPanel';
+import { NewsPanel } from '../components/NewsPanel';
 
 interface AssetWorkspaceProps {
   symbol?: string;
@@ -145,6 +146,10 @@ export const AssetWorkspace: React.FC<AssetWorkspaceProps> = ({ symbol = 'RELIAN
 
                     {activeTab === 'CHART' && intelligence.debate && (
                         <DebatePanel verdict={intelligence.debate} />
+                    )}
+
+                    {activeTab === 'CHART' && intelligence.news && (
+                        <NewsPanel news={intelligence.news} />
                     )}
                 </>
             )}

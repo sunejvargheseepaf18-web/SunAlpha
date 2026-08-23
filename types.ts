@@ -371,6 +371,24 @@ export interface ExploreIntelligence {
 // --- Asset Intelligence (Orchestrator Output) ---
 
 import type { DebateVerdict } from './domain/advice/advice.types';
+import type { AggregateSentiment } from './domain/sentiment/sentiment.engine';
+
+// --- News & Sentiment ---
+
+export interface NewsHeadline {
+  title: string;
+  link: string;
+  source: string;
+  publishedAt: string; // ISO ('' when the feed gave no date)
+  sentimentScore: number; // -1..1 from the lexicon engine
+}
+
+export interface SymbolNewsSentiment {
+  symbol: string;
+  items: NewsHeadline[];
+  sentiment: AggregateSentiment;
+  fetchedAt: string;
+}
 
 export interface AssetIntelligence {
   symbol: string;
@@ -388,6 +406,8 @@ export interface AssetIntelligence {
   regime?: MarketRegime;
   // AI adversarial debate verdict (advisory; absent when AI is offline)
   debate?: DebateVerdict;
+  // Headlines + lexicon sentiment (absent when the news feed is unreachable)
+  news?: SymbolNewsSentiment;
 
   lastUpdated: string;
 }
