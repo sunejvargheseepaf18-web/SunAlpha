@@ -151,6 +151,14 @@ export const parseYahooHistory = (res: YahooChartResponse): OhlcvBar[] => {
 // ---------------------------------------------------------------------------
 
 const quoteCache = new Map<string, { quote: LiveQuote; ts: number }>();
+const HISTORY_CACHE_TTL_MS = 5 * 60 * 1000; // bars change once a day; 5min is generous
+const historyCache = new Map<string, { bars: OhlcvBar[]; ts: number }>();
+
+// In-flight request dedup: the holdings screen, advisor, screener and
+// analytics often ask for the same symbol in the same tick — one network
+// request serves them all instead of N identical ones.
+const pendingQuotes = new Map<string, Promise<LiveQuote | null>>();
+const pendingHistories = new Map<string, Promise<OhlcvBar[]>>();
 
 const fetchChart = async (
   yahooSymbol: string,
@@ -165,30 +173,59 @@ const fetchChart = async (
   return res.json() as Promise<YahooChartResponse>;
 };
 
-/** Latest quote for an app symbol. Null on any failure — caller keeps its fallback. */
+/**
+ * Latest quote for an app symbol. Null only when there is NO answer at all:
+ * a fetch failure falls back to the last-known-good quote (its asOf shows
+ * the age) rather than dropping to the caller's static fallback.
+ */
 export const getLiveQuote = async (symbol: string): Promise<LiveQuote | null> => {
   const cached = quoteCache.get(symbol);
   if (cached && Date.now() - cached.ts < QUOTE_CACHE_TTL_MS) return cached.quote;
 
-  try {
-    const res = await fetchChart(toYahooSymbol(symbol), '1d', '1d');
-    const quote = parseYahooQuote(symbol, res);
-    if (quote) quoteCache.set(symbol, { quote, ts: Date.now() });
-    return quote;
-  } catch {
-    return null;
-  }
+  const pending = pendingQuotes.get(symbol);
+  if (pending) return pending;
+
+  const request = (async (): Promise<LiveQuote | null> => {
+    try {
+      const res = await fetchChart(toYahooSymbol(symbol), '1d', '1d');
+      const quote = parseYahooQuote(symbol, res);
+      if (quote) quoteCache.set(symbol, { quote, ts: Date.now() });
+      return quote ?? cached?.quote ?? null;
+    } catch {
+      return cached?.quote ?? null; // stale beats nothing; asOf carries the age
+    } finally {
+      pendingQuotes.delete(symbol);
+    }
+  })();
+  pendingQuotes.set(symbol, request);
+  return request;
 };
 
-/** Daily OHLCV history for an app symbol. Empty array on failure. */
+/** Daily OHLCV history for an app symbol. Empty array on failure. Cached + deduped. */
 export const getLiveHistory = async (symbol: string, days = 90): Promise<OhlcvBar[]> => {
   const range = days <= 30 ? '1mo' : days <= 95 ? '3mo' : days <= 190 ? '6mo' : '1y';
-  try {
-    const res = await fetchChart(toYahooSymbol(symbol), range, '1d');
-    return parseYahooHistory(res).slice(-days);
-  } catch {
-    return [];
-  }
+  const key = `${symbol}:${range}`;
+
+  const cached = historyCache.get(key);
+  if (cached && Date.now() - cached.ts < HISTORY_CACHE_TTL_MS) return cached.bars.slice(-days);
+
+  const pending = pendingHistories.get(key);
+  if (pending) return pending.then(bars => bars.slice(-days));
+
+  const request = (async (): Promise<OhlcvBar[]> => {
+    try {
+      const res = await fetchChart(toYahooSymbol(symbol), range, '1d');
+      const bars = parseYahooHistory(res);
+      if (bars.length > 0) historyCache.set(key, { bars, ts: Date.now() });
+      return bars;
+    } catch {
+      return cached?.bars ?? []; // expired-but-present history beats none
+    } finally {
+      pendingHistories.delete(key);
+    }
+  })();
+  pendingHistories.set(key, request);
+  return request.then(bars => bars.slice(-days));
 };
 
 export interface DividendEvent {

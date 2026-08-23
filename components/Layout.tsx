@@ -3,6 +3,7 @@ import React from 'react';
 import { AppMode, AppView, ExecutionMode } from '../types';
 import { MODE_CONFIG } from '../constants';
 import { requestNotificationPermission, startAlertMonitor } from '../services/alertService';
+import { JarvisPanel } from './JarvisPanel';
 import { 
   LayoutDashboard, 
   PieChart, 
@@ -227,6 +228,9 @@ export const Layout: React.FC<LayoutProps> = ({
             <p className="mt-1">Market data powered by Yahoo Finance • v0.1 MVP</p>
           </footer>
         </main>
+
+        {/* Jarvis assistant — global, Ctrl+K */}
+        <JarvisPanel />
       </div>
     </div>
   );
