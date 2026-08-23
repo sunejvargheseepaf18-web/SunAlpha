@@ -119,6 +119,9 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
        createLevel(cpr.pivot, '#d8b4fe', 0, 'Pivot'); // Purple
        createLevel(cpr.tc, '#818cf8', 2, 'TC');    // Indigo dashed
        createLevel(cpr.bc, '#818cf8', 2, 'BC');    // Indigo dashed
+       // Floor pivots (KGS-style): first support/resistance as dotted guides
+       if (cpr.r1 !== undefined) createLevel(cpr.r1, '#34d399', 1, 'R1'); // Emerald dotted
+       if (cpr.s1 !== undefined) createLevel(cpr.s1, '#f87171', 1, 'S1'); // Red dotted
     }
 
     // 6. Crosshair OHLC readout (TradingView-style top-left legend).

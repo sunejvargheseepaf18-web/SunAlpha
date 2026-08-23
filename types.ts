@@ -272,6 +272,16 @@ export interface CPRLevels {
   bc: number;
   width: CPRWidth;
   relationship?: CPRRelationship; // Relationship to previous day
+  widthPercent?: number; // (tc - bc) / pivot x 100
+  // Floor pivots from the same session (KGS-style)
+  r1?: number;
+  r2?: number;
+  r3?: number;
+  s1?: number;
+  s2?: number;
+  s3?: number;
+  // Next session's CPR (only when the latest bar is a completed session)
+  tomorrow?: { pivot: number; tc: number; bc: number; width: CPRWidth };
 }
 
 export interface TAReport {

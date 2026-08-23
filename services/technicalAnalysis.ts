@@ -1,5 +1,6 @@
 
-import { StockData, TAReport, TABucket, SignalDirection, TechnicalIndicator, CPRLevels, CPRWidth, CPRRelationship } from '../types';
+import { StockData, TAReport, TABucket, SignalDirection, TechnicalIndicator, CPRLevels } from '../types';
+import { computeCprFromBars } from '../domain/indicators/cpr.engine';
 import {
   macd,
   bollinger,
@@ -40,50 +41,27 @@ export const calculateEMASeries = (data: {date: string, close: number}[], period
   return series;
 };
 
-// --- KSG CPR Logic ---
-const calculateRawCPR = (high: number, low: number, close: number) => {
-  const pivot = (high + low + close) / 3;
-  const bc = (high + low) / 2;
-  let tc = (pivot * 2) - bc;
-  return { pivot, top: Math.max(tc, bc), bottom: Math.min(tc, bc) };
-};
-
-const determineCPRRelationship = (curr: {top: number, bottom: number}, prev: {top: number, bottom: number}): CPRRelationship => {
-  if (curr.bottom > prev.top) return 'HIGHER_VALUE';
-  if (curr.top < prev.bottom) return 'LOWER_VALUE';
-  if (curr.bottom > prev.bottom && curr.top < prev.top) return 'INSIDE_VALUE'; // Narrower inside
-  if (curr.bottom < prev.bottom && curr.top > prev.top) return 'OUTSIDE_VALUE'; // Engulfing
-  if (curr.bottom > prev.bottom && curr.bottom < prev.top) return 'OVERLAPPING_HIGHER';
-  if (curr.top < prev.top && curr.top > prev.bottom) return 'OVERLAPPING_LOWER';
-  return 'UNCHANGED';
-};
-
+// --- CPR (KGS / Pivot Boss) — delegates to the pure, tested engine ---
 const getCPR = (stock: StockData): CPRLevels | null => {
-  if (stock.history.length < 3) return null;
-
-  // Current CPR is calculated based on Yesterday's OHLC
-  const yesterday = stock.history[stock.history.length - 2];
-  const dayBefore = stock.history[stock.history.length - 3];
-
-  const curr = calculateRawCPR(yesterday.high, yesterday.low, yesterday.close);
-  const prev = calculateRawCPR(dayBefore.high, dayBefore.low, dayBefore.close);
-
-  // Width Classification (Simplified percentage based)
-  const range = curr.top - curr.bottom;
-  const widthPercent = (range / curr.pivot) * 100;
-  let width: CPRWidth = 'AVERAGE';
-  if (widthPercent < 0.25) width = 'NARROW';
-  else if (widthPercent > 0.6) width = 'WIDE';
-
-  // Relationship
-  const relationship = determineCPRRelationship(curr, prev);
-
+  const bundle = computeCprFromBars(
+    stock.history.map(h => ({ date: h.date, high: h.high, low: h.low, close: h.close })),
+    new Date().toISOString().split('T')[0]
+  );
+  if (!bundle) return null;
   return {
-    pivot: curr.pivot,
-    tc: curr.top,
-    bc: curr.bottom,
-    width,
-    relationship
+    pivot: bundle.pivot,
+    tc: bundle.tc,
+    bc: bundle.bc,
+    width: bundle.width,
+    widthPercent: bundle.widthPercent,
+    relationship: bundle.relationship,
+    r1: bundle.r1,
+    r2: bundle.r2,
+    r3: bundle.r3,
+    s1: bundle.s1,
+    s2: bundle.s2,
+    s3: bundle.s3,
+    tomorrow: bundle.tomorrow
   };
 };
 
@@ -97,7 +75,12 @@ const analyzeStructure = (prices: number[], cpr: CPRLevels | null): TABucket => 
 
   if (cpr) {
     indicators.push({ name: 'CPR Relationship', value: cpr.relationship?.replace('_', ' ') || 'N/A', signal: 'NEUTRAL' });
-    
+    indicators.push({
+      name: 'CPR Width',
+      value: `${cpr.width}${cpr.widthPercent !== undefined ? ` (${cpr.widthPercent.toFixed(2)}%)` : ''}`,
+      signal: 'NEUTRAL' // narrow = trending day likely, but direction-agnostic
+    });
+
     const close = prices[prices.length - 1];
     
     if (cpr.relationship === 'HIGHER_VALUE') {
