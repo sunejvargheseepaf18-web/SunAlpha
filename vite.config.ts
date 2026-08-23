@@ -51,6 +51,18 @@ export default defineConfig(({ mode }) => {
         },
       },
       plugins: [react()],
+      build: {
+        rollupOptions: {
+          output: {
+            // Heavy libraries in their own long-cacheable chunks
+            manualChunks: {
+              react: ['react', 'react-dom'],
+              charts: ['recharts', 'lightweight-charts'],
+              ai: ['@google/genai']
+            }
+          }
+        }
+      },
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),

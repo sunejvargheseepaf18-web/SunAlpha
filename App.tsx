@@ -92,22 +92,24 @@ const App: React.FC = () => {
     }
   };
 
-  // 1. Landing Screen
+  // 1. Onboarding Screen (Modal-like full takeover) — must be checked BEFORE
+  //    the landing branch: entering from Landing without a profile keeps
+  //    mode === LANDING, and checking landing first made this unreachable
+  //    (first click on a workspace card did nothing).
+  if (view === AppView.ONBOARDING) {
+      return <Onboarding onComplete={handleOnboardingComplete} />;
+  }
+
+  // 2. Landing Screen
   if (mode === AppMode.LANDING) {
     return <Landing onEnter={(m) => {
         // If no user profile, hijack flow to onboarding
         if (!userProfile) {
-            setMode(AppMode.LANDING); // Keep mode logic clean
             setView(AppView.ONBOARDING);
         } else {
             handleModeSwitch(m);
         }
     }} />;
-  }
-
-  // 2. Onboarding Screen (Modal-like full takeover)
-  if (view === AppView.ONBOARDING) {
-      return <Onboarding onComplete={handleOnboardingComplete} />;
   }
 
   // 3. Main App Layout
