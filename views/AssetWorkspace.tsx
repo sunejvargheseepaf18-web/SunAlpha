@@ -14,6 +14,7 @@ import { ConvictionBadge } from '../components/ConvictionBadge';
 import { DebatePanel } from '../components/DebatePanel';
 import { BacktestPanel } from '../components/BacktestPanel';
 import { NewsPanel } from '../components/NewsPanel';
+import { StrategyBuilderPanel } from '../components/StrategyBuilderPanel';
 
 interface AssetWorkspaceProps {
   symbol?: string;
@@ -133,6 +134,7 @@ export const AssetWorkspace: React.FC<AssetWorkspaceProps> = ({ symbol = 'RELIAN
                         <>
                             <TechnicalAnalysis report={intelligence.technical} />
                             <BacktestPanel symbol={intelligence.symbol} />
+                            <StrategyBuilderPanel symbol={intelligence.symbol} />
                         </>
                     )}
 
