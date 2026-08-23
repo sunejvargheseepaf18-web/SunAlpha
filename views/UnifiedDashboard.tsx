@@ -7,6 +7,7 @@ import { calculatePortfolio, getHoldingAdvices, getRedeploymentPlan } from '../s
 import { calculateCapitalSnapshot } from '../services/capitalEngine';
 import { getBrokerProfile } from '../services/brokerService';
 import { HoldingsPanel } from '../components/HoldingsPanel';
+import { recordAdvices } from '../services/adviceJournal';
 import { HoldingAdvice, RedeploymentPlan } from '../domain/advice/advice.types';
 import { MarketPulse, CapitalSnapshot, UserProfile, LifecycleStage, AppMode, ExecutionMode } from '../types';
 import { ArrowUpRight, PiggyBank, GraduationCap } from 'lucide-react';
@@ -54,6 +55,10 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
       const holdingAdvices = getHoldingAdvices(port.positions);
       setAdvices(holdingAdvices);
       setRedeployment(getRedeploymentPlan(holdingAdvices, port.positions));
+
+      // Feedback loop: journal today's advices so future sessions can grade
+      // them against real outcomes (best-effort, never blocks the UI).
+      recordAdvices(holdingAdvices, port.positions);
 
       setLoading(false);
     };

@@ -80,6 +80,25 @@ Expensive tokens plan. Cheap tokens type.
 - **Deterministic fallback stays mandatory**: every AI path must degrade
   to rule-based logic when the API is offline (existing behavior)
 
+### Adversarial Debate (Bull vs Bear)
+- Material market signals may be produced by a debate: two WORKER agents
+  argue opposite sides from identical digested evidence; a PLANNER judge
+  reads only their two one-page cases and issues a MarketSignal with
+  confidence (`services/ai/debateEngine.ts`)
+- The judge may not introduce facts; unevidenced points are discarded
+- A failed/offline debate returns null — callers fall back to the
+  deterministic conviction verdict, never a guessed signal
+- Debate output feeds the advice engine as its `signals` input only.
+  It never creates orders; all execution still passes rebalance → risk →
+  trade state machine
+
+### Feedback Loop (Advice Journal)
+- Every issued advice is journaled with the price it was issued at
+  (`services/adviceJournal.ts`); grading against later prices is pure
+  domain logic (`domain/advice/journal.engine.ts`)
+- Scorecards may be digested into future AI briefs so the system learns
+  from its own hit rate — but grading itself never involves a model
+
 ---
 
 ## 🧪 Testing Requirements
