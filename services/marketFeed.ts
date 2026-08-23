@@ -36,6 +36,10 @@ const SYMBOL_OVERRIDES: Record<string, string> = {
   SENSEX: '^BSESN',
   BANKNIFTY: '^NSEBANK',
   NASDAQ: '^IXIC',
+  // Crypto pairs quote in INR on Yahoo (CoinGecko is the primary feed)
+  BTC: 'BTC-INR',
+  ETH: 'ETH-INR',
+  SOL: 'SOL-INR',
   // US listings held directly keep their plain ticker
   AAPL: 'AAPL',
   MSFT: 'MSFT',

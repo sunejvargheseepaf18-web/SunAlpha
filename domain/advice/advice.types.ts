@@ -32,7 +32,7 @@ export interface TradePlan {
 export interface AdvicePosition {
   symbol: string;
   name: string;
-  assetType: 'STOCK' | 'MF' | 'GOLD';
+  assetType: 'STOCK' | 'MF' | 'GOLD' | 'CRYPTO';
   quantity: number;
   currentPrice: number;
   currentValue: number;

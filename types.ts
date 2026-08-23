@@ -103,7 +103,7 @@ export interface FundamentalData {
 
 export interface PortfolioPosition {
   id: string;
-  assetType: 'STOCK' | 'MF' | 'GOLD';
+  assetType: 'STOCK' | 'MF' | 'GOLD' | 'CRYPTO';
   symbol: string;
   name: string;
   quantity: number;

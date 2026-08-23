@@ -36,20 +36,21 @@ const inr = (n: number): string => `₹${Math.round(n).toLocaleString('en-IN')}`
 const fmtRate = (n: number): string =>
   `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-// Stocks trade in whole shares; MF redemptions/purchases in units to 2dp.
+// Stocks trade whole shares; MF units to 2dp; crypto to 4dp.
+const precisionFor = (assetType: AdvicePosition['assetType']): number =>
+  assetType === 'MF' ? 100 : assetType === 'CRYPTO' ? 10000 : 1;
+
 const roundQty = (qty: number, assetType: AdvicePosition['assetType'], mode: 'ceil' | 'floor'): number => {
-  if (assetType === 'MF') {
-    const scaled = qty * 100;
-    return (mode === 'ceil' ? Math.ceil(scaled) : Math.floor(scaled)) / 100;
-  }
-  return mode === 'ceil' ? Math.ceil(qty) : Math.floor(qty);
+  const scale = precisionFor(assetType);
+  const scaled = qty * scale;
+  return (mode === 'ceil' ? Math.ceil(scaled) : Math.floor(scaled)) / scale;
 };
 
 const fmtQty = (qty: number, assetType: AdvicePosition['assetType']): string =>
-  assetType === 'MF' ? qty.toFixed(2) : String(qty);
+  assetType === 'MF' ? qty.toFixed(2) : assetType === 'CRYPTO' ? qty.toFixed(4) : String(qty);
 
 const unitWord = (assetType: AdvicePosition['assetType']): string =>
-  assetType === 'MF' ? 'units' : 'shares';
+  assetType === 'MF' || assetType === 'CRYPTO' ? 'units' : 'shares';
 
 export const generateHoldingAdvices = (
   positions: AdvicePosition[],

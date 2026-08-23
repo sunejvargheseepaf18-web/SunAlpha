@@ -27,7 +27,8 @@ export const getHoldingPriceSeries = async (
   days: number
 ): Promise<Series | null> => {
   try {
-    if (pos.assetType === 'STOCK') {
+    if (pos.assetType === 'STOCK' || pos.assetType === 'CRYPTO') {
+      // Crypto resolves to Yahoo '-INR' tickers via SYMBOL_OVERRIDES
       const bars = await getLiveHistory(pos.symbol, days);
       if (bars.length < 2) return null;
       return new Map(bars.map(b => [b.date, b.close]));
@@ -59,7 +60,7 @@ export const buildPortfolioAnalytics = async (
   positions: PortfolioPosition[],
   days = 365
 ): Promise<PortfolioAnalytics | null> => {
-  const priced = positions.filter(p => p.assetType === 'STOCK' || p.assetType === 'MF');
+  const priced = positions.filter(p => p.assetType === 'STOCK' || p.assetType === 'MF' || p.assetType === 'CRYPTO');
   if (priced.length === 0) return null;
 
   const [seriesList, benchmarkBars] = await Promise.all([

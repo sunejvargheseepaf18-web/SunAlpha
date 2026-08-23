@@ -67,7 +67,7 @@ export const HoldingsPanel: React.FC<HoldingsPanelProps> = ({
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-gray-800">{pos.name}</span>
                       <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border border-gray-200 text-gray-500">
-                        {pos.assetType === 'MF' ? 'MF' : 'Equity'}
+                        {pos.assetType === 'MF' ? 'MF' : pos.assetType === 'CRYPTO' ? 'Crypto' : 'Equity'}
                       </span>
                     </div>
                     <div className="text-xs text-gray-400 mt-0.5 font-mono">

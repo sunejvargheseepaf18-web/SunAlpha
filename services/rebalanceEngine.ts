@@ -15,6 +15,8 @@ const TARGET_PROFILES: Record<string, TargetAllocation> = {
 // Helper to classify assets
 const getAssetClass = (pos: PortfolioPosition): keyof TargetAllocation => {
     if (pos.assetType === 'GOLD') return 'gold';
+    // Crypto rides in the equity risk bucket until targets grow a sleeve
+    if (pos.assetType === 'CRYPTO') return 'equity';
     if (pos.assetType === 'MF' && pos.name.includes('Debt')) return 'debt';
     if (pos.assetType === 'MF' && pos.name.includes('Liquid')) return 'cash';
     return 'equity'; // Default to equity

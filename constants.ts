@@ -50,7 +50,7 @@ export const MODE_CONFIG = {
 export const MOCK_HOLDINGS_DATA: Array<{
   symbol: string;
   name: string;
-  assetType: 'STOCK' | 'MF';
+  assetType: 'STOCK' | 'MF' | 'CRYPTO';
   qty: number;
   avg: number;
   last?: number;
@@ -64,6 +64,9 @@ export const MOCK_HOLDINGS_DATA: Array<{
   { symbol: "SBI-CONTRA", name: "SBI Contra Fund Regular", assetType: 'MF', qty: 11.84, avg: 380.18, buyDate: '2025-11-20' },
   { symbol: "NIPPON-ELSS", name: "Nippon India ELSS", assetType: 'MF', qty: 33.03, avg: 144.26, buyDate: '2024-06-01' },
   { symbol: "NIPPON-MULTI", name: "Nippon India Multi Cap Grpwth", assetType: 'MF', qty: 39.26, avg: 305.66, buyDate: '2026-02-14' },
+  // Crypto sleeve (dummy) — priced live via CoinGecko in INR
+  { symbol: "BTC", name: "Bitcoin", assetType: 'CRYPTO', qty: 0.015, avg: 7800000, buyDate: '2025-03-10' },
+  { symbol: "ETH", name: "Ethereum", assetType: 'CRYPTO', qty: 0.4, avg: 260000, buyDate: '2025-09-18' },
 ];
 
 export const MOCK_USER_PROGRESS = {

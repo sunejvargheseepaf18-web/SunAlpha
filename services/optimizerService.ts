@@ -58,7 +58,7 @@ export const optimizePortfolio = async (
   positions: PortfolioPosition[],
   days = 365
 ): Promise<OptimizationResult | null> => {
-  const priced = positions.filter(p => p.assetType === 'STOCK' || p.assetType === 'MF');
+  const priced = positions.filter(p => p.assetType === 'STOCK' || p.assetType === 'MF' || p.assetType === 'CRYPTO');
   if (priced.length < 2) return null; // nothing to optimize with one asset
 
   const seriesList = await Promise.all(priced.map(p => getHoldingPriceSeries(p, days)));
@@ -110,7 +110,7 @@ export const optimizePortfolio = async (
       usable.map(u => ({
         symbol: u.pos.symbol,
         price: u.pos.currentPrice,
-        isMf: u.pos.assetType === 'MF'
+        isMf: u.pos.assetType === 'MF' || u.pos.assetType === 'CRYPTO'
       })),
       port.weights,
       totalValue

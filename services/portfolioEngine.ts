@@ -4,6 +4,7 @@ import { MOCK_HOLDINGS_DATA } from '../constants';
 import { getVirtualPositions, initializePaperAccount } from './paper/paperStore';
 import { getLatestNavByName } from './mfNavService';
 import { getLiveQuotes } from './marketFeed';
+import { getCryptoQuotes } from './cryptoFeed';
 import { generateHoldingAdvices, generateRedeploymentPlan } from '../domain/advice/advice.engine';
 import {
   HoldingAdvice,
@@ -121,12 +122,20 @@ const repriceWithLiveFeeds = async (
   positions: PortfolioPosition[]
 ): Promise<PortfolioPosition[]> => {
   const equitySymbols = positions.filter(p => p.assetType === 'STOCK').map(p => p.symbol);
-  const equityQuotes = await getLiveQuotes(equitySymbols);
+  const cryptoSymbols = positions.filter(p => p.assetType === 'CRYPTO').map(p => p.symbol);
+  const [equityQuotes, cryptoQuotes] = await Promise.all([
+    getLiveQuotes(equitySymbols),
+    getCryptoQuotes(cryptoSymbols)
+  ]);
 
   return Promise.all(
     positions.map(async (pos) => {
       if (pos.assetType === 'STOCK') {
         const quote = equityQuotes.get(pos.symbol);
+        return quote ? withPrice(pos, quote.price, 'LIVE_QUOTE', quote.asOf) : pos;
+      }
+      if (pos.assetType === 'CRYPTO') {
+        const quote = cryptoQuotes.get(pos.symbol);
         return quote ? withPrice(pos, quote.price, 'LIVE_QUOTE', quote.asOf) : pos;
       }
       if (pos.assetType === 'MF') {
