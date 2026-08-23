@@ -2,6 +2,7 @@
 import { StockData, MarketIndex, FundamentalData, MarketQuote, MarketPulse, OptionRadarItem, FailedSignal, MutualFundData } from '../types';
 import { detectRegime } from './regimeEngine';
 import { resolveScheme, getNavHistory } from './mfNavService';
+import { getLiveQuote, getLiveQuotes, getLiveHistory } from './marketFeed';
 
 // Simulating API latency
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -66,25 +67,60 @@ const generateNAVHistory = (startNAV: number, days: number = 365) => {
 };
 
 export const fetchMarketIndices = async (): Promise<MarketIndex[]> => {
-  await delay(500); // Simulate network
-  return [
+  // Static fallback values, overwritten per-index when the live feed answers.
+  const fallback: MarketIndex[] = [
     { name: "NIFTY 50", value: 22145.60, change: 124.30, percentChange: 0.56 },
     { name: "SENSEX", value: 73450.20, change: 350.15, percentChange: 0.48 },
     { name: "NASDAQ", value: 16200.45, change: -45.20, percentChange: -0.28 },
     { name: "GOLD", value: 62500.00, change: 120.00, percentChange: 0.19 },
   ];
+
+  const live = await getLiveQuotes(fallback.map(i => i.name));
+  return fallback.map(idx => {
+    const q = live.get(idx.name);
+    return q
+      ? { name: idx.name, value: q.price, change: q.change, percentChange: q.changePercent }
+      : idx;
+  });
 };
 
 export const fetchStockDetails = async (symbol: string): Promise<StockData> => {
+  // Live path: real OHLCV history + quote from the market feed.
+  const [liveHistory, liveQuote] = await Promise.all([
+    getLiveHistory(symbol, 90),
+    getLiveQuote(symbol)
+  ]);
+  if (liveHistory.length >= 2) {
+    const latest = liveHistory[liveHistory.length - 1];
+    const prev = liveHistory[liveHistory.length - 2];
+    const price = liveQuote?.price ?? latest.close;
+    const change = liveQuote?.change ?? parseFloat((latest.close - prev.close).toFixed(2));
+    return {
+      symbol: symbol.toUpperCase(),
+      name: getCompanyName(symbol),
+      price,
+      change,
+      changePercent:
+        liveQuote?.changePercent ??
+        parseFloat((((latest.close - prev.close) / prev.close) * 100).toFixed(2)),
+      volume: latest.volume,
+      marketCap: "N/A", // not provided by the chart feed
+      peRatio: 0, // not provided by the chart feed
+      sector: "N/A",
+      history: liveHistory
+    };
+  }
+
+  // Fallback: simulated data (offline / unknown symbol)
   await delay(800);
-  
+
   // Seedable-ish random based on symbol length
-  const basePrice = symbol.length * 50 + 100; 
+  const basePrice = symbol.length * 50 + 100;
   const history = generateHistory(basePrice, 90);
   const latest = history[history.length - 1];
   const prev = history[history.length - 2];
   const change = latest.close - prev.close;
-  
+
   return {
     symbol: symbol.toUpperCase(),
     name: getCompanyName(symbol),
@@ -183,8 +219,12 @@ export const fetchMutualFundDetails = async (symbol: string): Promise<MutualFund
 
 // Batch fetch for Watchlists
 export const fetchQuotes = async (symbols: string[]): Promise<MarketQuote[]> => {
-    await delay(300);
+    // Live path first; only symbols the feed can't answer fall back to mock.
+    const live = await getLiveQuotes(symbols);
+
     return symbols.map(sym => {
+        const liveQuote = live.get(sym);
+        if (liveQuote) return liveQuote;
         // Consistent-ish random data
         const seed = sym.length; 
         const basePrice = seed * 150 + 50;

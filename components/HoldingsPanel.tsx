@@ -75,6 +75,9 @@ export const HoldingsPanel: React.FC<HoldingsPanelProps> = ({
                       {pos.priceSource === 'LIVE_NAV' && pos.priceAsOf && (
                         <span className="ml-2 text-emerald-500">NAV as of {pos.priceAsOf}</span>
                       )}
+                      {pos.priceSource === 'LIVE_QUOTE' && (
+                        <span className="ml-2 text-emerald-500">live quote</span>
+                      )}
                     </div>
                   </div>
 
