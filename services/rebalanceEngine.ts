@@ -1,5 +1,10 @@
 
 import { RebalanceSimulation, TargetAllocation, PortfolioPosition, DriftMetric, RebalanceAction, ActionAlternative, RebalanceSuggestion, ScannerResult } from '../types';
+import {
+    evaluateBands,
+    cashFlowRebalance,
+    ContributionPlan
+} from '../domain/rebalance/bandRebalance.engine';
 
 const TARGET_PROFILES: Record<string, TargetAllocation> = {
     'AGGRESSIVE': { equity: 75, debt: 15, gold: 5, cash: 5 },
@@ -82,38 +87,45 @@ export const calculateDrift = (positions: PortfolioPosition[], profileKey: strin
         currentAlloc[cls] += p.currentValue;
     });
 
-    // 2. Calculate Drift
+    // 2. Calculate Drift — severity from the Bogleheads 5/25 bands: the
+    // absolute band (5pp) marks HIGH, the relative band (25% of target)
+    // catches drifted small allocations as MODERATE, inside both is LOW.
+    const bands = evaluateBands(
+        (Object.keys(target) as Array<keyof TargetAllocation>).map(key => ({
+            key,
+            currentValue: currentAlloc[key],
+            targetPct: target[key]
+        }))
+    );
+
     const metrics: DriftMetric[] = [];
     let totalDriftScore = 0;
 
-    (Object.keys(target) as Array<keyof TargetAllocation>).forEach(key => {
-        const currentPct = totalValue > 0 ? (currentAlloc[key] / totalValue) * 100 : 0;
-        const targetPct = target[key];
-        const drift = currentPct - targetPct;
-        const absDrift = Math.abs(drift);
-        
-        let severity: 'LOW' | 'MODERATE' | 'HIGH' = 'LOW';
-        if (absDrift > 10) severity = 'HIGH';
-        else if (absDrift > 5) severity = 'MODERATE';
+    for (const row of bands.rows) {
+        const severity: 'LOW' | 'MODERATE' | 'HIGH' = row.absTriggered
+            ? 'HIGH'
+            : row.relTriggered
+              ? 'MODERATE'
+              : 'LOW';
 
         if (severity === 'HIGH') totalDriftScore += 30;
         else if (severity === 'MODERATE') totalDriftScore += 10;
 
         metrics.push({
-            assetClass: key,
-            current: currentPct,
-            target: targetPct,
-            drift,
+            assetClass: row.key as keyof TargetAllocation,
+            current: row.currentPct,
+            target: row.targetPct,
+            drift: row.driftPp,
             severity
         });
-    });
+    }
 
     // 3. Generate Actions (Simulation)
     const actions: RebalanceAction[] = [];
     let projectedTaxImpact = 0;
     
     metrics.forEach(m => {
-        if (Math.abs(m.drift) < 2) return; // Ignore small drift
+        if (m.severity === 'LOW') return; // inside both bands — noise, not drift
 
         const amount = (Math.abs(m.drift) / 100) * totalValue;
         
@@ -180,6 +192,55 @@ export const calculateDrift = (positions: PortfolioPosition[], profileKey: strin
         projectedTaxImpact,
         volatilityReduction: totalDriftScore > 20 ? 12.5 : 2.0, // Mock impact
         status: totalDriftScore > 50 ? 'CRITICAL' : totalDriftScore > 20 ? 'DRIFTING' : 'BALANCED'
+    };
+};
+
+export interface ContributionInvestmentPlan extends ContributionPlan {
+    instruments: { assetClass: string; symbol: string; name: string; amount: number }[];
+}
+
+/**
+ * Cash-flow rebalancing: direct a new contribution at underweight classes
+ * (never selling anything), mapped to a concrete instrument per class.
+ */
+export const planContribution = (
+    positions: PortfolioPosition[],
+    amount: number,
+    profileKey: string = 'BALANCED'
+): ContributionInvestmentPlan | null => {
+    const target = TARGET_PROFILES[profileKey] ?? TARGET_PROFILES['BALANCED'];
+    const currentAlloc: Record<string, number> = { equity: 0, debt: 0, gold: 0, cash: 0 };
+    positions.forEach(p => {
+        currentAlloc[getAssetClass(p)] += p.currentValue;
+    });
+
+    const plan = cashFlowRebalance(
+        (Object.keys(target) as Array<keyof TargetAllocation>).map(key => ({
+            key,
+            currentValue: currentAlloc[key],
+            targetPct: target[key]
+        })),
+        amount
+    );
+    if (!plan) return null;
+
+    const INSTRUMENT_BY_CLASS: Record<string, { symbol: string; name: string }> = {
+        equity: { symbol: 'NIFTYBEES', name: 'Nifty 50 BeES ETF' },
+        debt: { symbol: 'LIQUIDBEES', name: 'Liquid BeES ETF' },
+        gold: { symbol: 'GOLDBEES', name: 'Gold BeES ETF' },
+        cash: { symbol: 'CASH', name: 'Hold as cash' }
+    };
+
+    return {
+        ...plan,
+        instruments: plan.allocations
+            .filter(a => a.amount > 0)
+            .map(a => ({
+                assetClass: a.key,
+                symbol: INSTRUMENT_BY_CLASS[a.key]?.symbol ?? a.key.toUpperCase(),
+                name: INSTRUMENT_BY_CLASS[a.key]?.name ?? a.key,
+                amount: a.amount
+            }))
     };
 };
 

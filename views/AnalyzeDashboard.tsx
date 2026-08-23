@@ -7,6 +7,7 @@ import { optimizePortfolio, OptimizationResult } from '../services/optimizerServ
 import { OptimizerPanel } from '../components/OptimizerPanel';
 import { buildIncomeReport, IncomeReport } from '../services/incomeService';
 import { IncomePanel } from '../components/IncomePanel';
+import { ContributionPlanner } from '../components/ContributionPlanner';
 import { PerformanceMetrics } from '../domain/analytics/performance.engine';
 import { PerformanceStats } from '../components/PerformanceStats';
 import { calculateDrift } from '../services/rebalanceEngine';
@@ -334,6 +335,10 @@ export const AnalyzeDashboard: React.FC<AnalyzeDashboardProps> = ({ initialRebal
                 </div>
 
                 {optimization && <OptimizerPanel result={optimization} />}
+
+                {portfolio.positions.length > 0 && (
+                    <ContributionPlanner positions={portfolio.positions} />
+                )}
 
                 {income && <IncomePanel report={income} />}
 
