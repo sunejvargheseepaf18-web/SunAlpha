@@ -208,7 +208,10 @@ export interface MarketRegime {
 
 // --- Scanner Types ---
 
-export type ScanType = 'BULLISH_MOMENTUM' | 'BEARISH_MOMENTUM' | 'VOLUME_SHOCKER' | 'NARROW_CPR' | 'OVERSOLD' | 'OVERBOUGHT';
+export type ScanType =
+  | 'BULLISH_MOMENTUM' | 'BEARISH_MOMENTUM' | 'VOLUME_SHOCKER' | 'NARROW_CPR' | 'OVERSOLD' | 'OVERBOUGHT'
+  // Bar-pattern scans (Screeni-py style)
+  | 'BREAKOUT' | 'CONSOLIDATION' | 'VOLUME_DRYUP' | 'NR7' | 'INSIDE_BAR' | 'NEAR_52W_HIGH';
 
 export interface ScannerResult {
   id: string;

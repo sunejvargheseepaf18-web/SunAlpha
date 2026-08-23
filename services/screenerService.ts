@@ -7,6 +7,7 @@ import { ScannerResult } from '../types';
 import { MOCK_HOLDINGS_DATA } from '../constants';
 import { getLiveHistory } from './marketFeed';
 import { computeScreenerMetrics, runScreens, ScreenerMetrics } from '../domain/screener/screener.engine';
+import { runPatternScans } from '../domain/scanner/patternScan.engine';
 
 // Liquid NSE names to sweep alongside holdings (kept small: one feed
 // request per symbol per run).
@@ -43,7 +44,7 @@ export const runLiveScreens = async (): Promise<ScannerResult[] | null> => {
   if (rows.length === 0) return null;
 
   const timestamp = new Date().toISOString();
-  const results: ScannerResult[] = runScreens(rows).map((hit, i) => ({
+  const metricResults: ScannerResult[] = runScreens(rows).map((hit, i) => ({
     id: `live-scan-${i}`,
     symbol: hit.metrics.symbol,
     type: hit.screen.type,
@@ -53,6 +54,30 @@ export const runLiveScreens = async (): Promise<ScannerResult[] | null> => {
     tags: hit.screen.tags,
     timeframe: '1D' as const
   }));
+
+  // Bar-pattern scans (breakout/consolidation/NR7/…) over the SAME
+  // histories — no extra feed requests.
+  const patternResults: ScannerResult[] = [];
+  symbols.forEach((symbol, i) => {
+    if (histories[i].length < 8) return;
+    for (const hit of runPatternScans(histories[i])) {
+      patternResults.push({
+        id: `pattern-scan-${symbol}-${hit.type}`,
+        symbol,
+        type: hit.type,
+        signalStrength: hit.strength,
+        description: hit.description,
+        timestamp,
+        tags: hit.tags,
+        timeframe: '1D' as const
+      });
+    }
+  });
+
+  // Strongest first, capped so the Explore grid stays scannable.
+  const results = [...metricResults, ...patternResults]
+    .sort((a, b) => b.signalStrength - a.signalStrength)
+    .slice(0, 18);
 
   cache = { results, ts: Date.now() };
   return results;
