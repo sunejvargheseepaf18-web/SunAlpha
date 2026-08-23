@@ -1,6 +1,6 @@
 
 import { TaxSummary, CapitalGainEntry, TaxHarvestOpportunity, PortfolioPosition, PeriodContext } from '../types';
-import { MOCK_HOLDINGS_DATA } from '../constants';
+import { getActiveHoldingsData } from './portfolioIoService';
 import {
   applyLossOffsets,
   computeEquityTax,
@@ -145,7 +145,7 @@ export const calculateTaxReport = async (positions: PortfolioPosition[], period:
   // But strictly speaking, you harvest to offset gains in the SELECTED period.
   // Terms come from real buy dates (joined from the holdings data), offsets
   // and rates from the pure tax domain engine — no randomness.
-  const buyDateBySymbol = new Map(MOCK_HOLDINGS_DATA.map(h => [h.symbol, h.buyDate]));
+  const buyDateBySymbol = new Map(getActiveHoldingsData().map(h => [h.symbol, h.buyDate]));
   const asOf = new Date().toISOString().split('T')[0];
   const harvestable: HarvestHolding[] = positions
     .filter(p => (p.assetType === 'STOCK' || p.assetType === 'MF') && buyDateBySymbol.has(p.symbol))

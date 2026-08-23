@@ -14,7 +14,7 @@ import { getAlerts } from './alertService';
 import { fetchMarketPulse } from './marketData';
 import { generateText } from './ai/llm';
 import { digest } from './ai/contextDigest';
-import { MOCK_HOLDINGS_DATA } from '../constants';
+import { getActiveHoldingsData } from './portfolioIoService';
 
 export interface AssistantReply {
   kind: IntentKind;
@@ -24,9 +24,10 @@ export interface AssistantReply {
 const inr = (v: number): string =>
   `₹${Math.round(v).toLocaleString('en-IN')}`;
 
-const KNOWN_SYMBOLS: string[] = [
+// Computed per query so freshly imported holdings are recognized immediately.
+const knownSymbols = (): string[] => [
   ...new Set([
-    ...MOCK_HOLDINGS_DATA.map(h => h.symbol),
+    ...getActiveHoldingsData().map(h => h.symbol),
     'NIFTY 50', 'NIFTY', 'SENSEX', 'BANKNIFTY',
     'RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'ICICIBANK', 'SBIN',
     'TATAMOTORS', 'TATASTEEL', 'ADANIENT', 'LT', 'ITC', 'NIFTYBEES'
@@ -154,7 +155,7 @@ const answerAi = async (question: string): Promise<string> => {
 
 /** Route one user query to the right engine and format the answer. */
 export const askAssistant = async (query: string): Promise<AssistantReply> => {
-  const intent = parseIntent(query, KNOWN_SYMBOLS);
+  const intent = parseIntent(query, knownSymbols());
   try {
     switch (intent.kind) {
       case 'HELP': return { kind: intent.kind, text: HELP_TEXT };

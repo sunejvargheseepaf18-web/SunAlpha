@@ -19,6 +19,7 @@ import { Activity, AlertTriangle, CheckCircle, TrendingUp, BrainCircuit, LineCha
 import { Insight, PortfolioHistoryPoint, RebalanceSimulation, AnalysisReport, CapitalSnapshot, RebalanceSuggestion } from '../types';
 import { RebalancePanel } from '../components/RebalancePanel';
 import { CapitalMonitor } from '../components/CapitalMonitor';
+import { ImportExportPanel } from '../components/ImportExportPanel';
 
 // Reusable Report Viewer Component (same as before)
 const ReportViewer: React.FC<{ report: AnalysisReport; onBack: () => void }> = ({ report, onBack }) => (
@@ -111,6 +112,7 @@ export const AnalyzeDashboard: React.FC<AnalyzeDashboardProps> = ({ initialRebal
   const [review, setReview] = useState<PortfolioReview | null>(null);
   const [advisorNote, setAdvisorNote] = useState<string | null>(null);
   const [rebalanceSim, setRebalanceSim] = useState<RebalanceSimulation | null>(null);
+  const [holdingsVersion, setHoldingsVersion] = useState(0);
 
   useEffect(() => {
     const init = async () => {
@@ -160,7 +162,7 @@ export const AnalyzeDashboard: React.FC<AnalyzeDashboardProps> = ({ initialRebal
       }
     };
     init();
-  }, [initialRebalanceIntent]); // Re-run if intent changes
+  }, [initialRebalanceIntent, holdingsVersion]); // Re-run on intent or holdings-source change
 
   const handleRunNewReport = async () => {
       const rpt = await runReport('PORTFOLIO_HEALTH');
@@ -268,6 +270,9 @@ export const AnalyzeDashboard: React.FC<AnalyzeDashboardProps> = ({ initialRebal
       {/* Live Dashboard View */}
       {viewMode === 'LIVE' && (
         <>
+            {/* Holdings source: import broker CSV / export CSV+Ghostfolio */}
+            <ImportExportPanel onHoldingsChanged={() => setHoldingsVersion(v => v + 1)} />
+
             {/* Header Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-white p-5 rounded-xl shadow-sm border border-blue-100">

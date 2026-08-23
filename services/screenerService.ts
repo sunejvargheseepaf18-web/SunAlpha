@@ -4,7 +4,7 @@
 // equity holdings. Returns ScannerResult rows for the existing Explore UI.
 
 import { ScannerResult } from '../types';
-import { MOCK_HOLDINGS_DATA } from '../constants';
+import { getActiveHoldingsData } from './portfolioIoService';
 import { getLiveHistory } from './marketFeed';
 import { computeScreenerMetrics, runScreens, ScreenerMetrics } from '../domain/screener/screener.engine';
 import { runPatternScans } from '../domain/scanner/patternScan.engine';
@@ -22,7 +22,7 @@ let cache: { results: ScannerResult[]; ts: number } | null = null;
 const universe = (): string[] => [
   ...new Set([
     ...BASE_UNIVERSE,
-    ...MOCK_HOLDINGS_DATA.filter(h => h.assetType === 'STOCK').map(h => h.symbol)
+    ...getActiveHoldingsData().filter(h => h.assetType === 'STOCK').map(h => h.symbol)
   ])
 ];
 

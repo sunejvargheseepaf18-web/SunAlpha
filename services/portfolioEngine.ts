@@ -1,6 +1,6 @@
 
 import { PortfolioPosition, PortfolioHistoryPoint, ExecutionMode } from '../types';
-import { MOCK_HOLDINGS_DATA } from '../constants';
+import { getActiveHoldingsData } from './portfolioIoService';
 import { getVirtualPositions, initializePaperAccount } from './paper/paperStore';
 import { getLatestNavByName } from './mfNavService';
 import { getLiveQuotes } from './marketFeed';
@@ -167,9 +167,10 @@ export const calculatePortfolio = async (mode: ExecutionMode = 'LIVE'): Promise<
       positions = getVirtualPositions();
 
   } else {
-      // LIVE MODE — dummy holdings snapshot; equities priced at their last
-      // traded price, MFs at purchase NAV until the live NAV link below runs.
-      positions = MOCK_HOLDINGS_DATA.map((holding, idx) => {
+      // LIVE MODE — imported holdings when present, sample book otherwise;
+      // equities priced at their last traded price, MFs at purchase NAV
+      // until the live NAV link below runs.
+      positions = getActiveHoldingsData().map((holding, idx) => {
         const currentPrice = holding.last ?? holding.avg;
 
         return {
