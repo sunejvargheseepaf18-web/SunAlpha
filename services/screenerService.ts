@@ -99,7 +99,8 @@ export const runLiveScreens = async (): Promise<ScannerResult[] | null> => {
   for (const indexSymbol of ['NIFTY', 'BANKNIFTY']) {
     const detail = await getLiveChainDetail(indexSymbol);
     if (!detail) continue;
-    const summary = computeOiSummary(detail.rows);
+    // Whole-chain OI, not the ATM display window — walls beyond 5 strikes count.
+    const summary = computeOiSummary(detail.fullRows);
     if (!summary) continue;
     for (const hit of oiScanHits(summary, detail.spot)) {
       oiResults.push({

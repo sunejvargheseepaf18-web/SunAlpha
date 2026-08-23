@@ -139,11 +139,25 @@ const toContract = (
  * centered on the ATM strike (strikesEachSide in/out of the money).
  * `now` is injected for determinism in tests.
  */
+// Zero-OI stand-in for a strike quoted on one side only: for TOTALS the
+// missing side genuinely holds zero OI, so the present side still counts.
+const emptyContract = (strike: number, type: 'CE' | 'PE'): OptionContract => ({
+  strike,
+  type,
+  price: 0,
+  change: 0,
+  oi: 0,
+  oiChange: 0,
+  volume: 0,
+  iv: 0,
+  greeks: { delta: 0, gamma: 0, theta: 0, vega: 0 }
+});
+
 export const parseNseOptionChain = (
   res: NseOptionChainResponse,
   strikesEachSide = 5,
   now: Date = new Date()
-): { rows: OptionChainRow[]; spot: number; expiry: string; asOf: string } | null => {
+): { rows: OptionChainRow[]; fullRows: OptionChainRow[]; spot: number; expiry: string; asOf: string } | null => {
   const records = res?.records;
   const spot = records?.underlyingValue;
   const expiry = records?.expiryDates?.[0];
@@ -151,20 +165,27 @@ export const parseNseOptionChain = (
   if (!spot || spot <= 0 || !expiry || !data?.length) return null;
 
   const dte = daysUntil(expiry, now);
-  const rows: OptionChainRow[] = [];
+  // fullRows: EVERY strike of the nearest expiry (one-sided strikes get a
+  // zeroed opposite side) — the analytics set. PCR, OI walls and max pain
+  // computed on a display window would miss walls beyond it and disagree
+  // with NSE's own whole-chain PCR.
+  const fullRows: OptionChainRow[] = [];
   for (const item of data) {
     if (item.expiryDate !== expiry || !item.strikePrice) continue;
-    if (!item.CE || !item.PE) continue; // need both sides for a chain row
-    rows.push({
+    if (!item.CE && !item.PE) continue;
+    fullRows.push({
       strike: item.strikePrice,
-      ce: toContract(item.CE, item.strikePrice, 'CE', spot, dte),
-      pe: toContract(item.PE, item.strikePrice, 'PE', spot, dte)
+      ce: item.CE ? toContract(item.CE, item.strikePrice, 'CE', spot, dte) : emptyContract(item.strikePrice, 'CE'),
+      pe: item.PE ? toContract(item.PE, item.strikePrice, 'PE', spot, dte) : emptyContract(item.strikePrice, 'PE')
     });
   }
-  if (rows.length === 0) return null;
+  if (fullRows.length === 0) return null;
+  fullRows.sort((a, b) => a.strike - b.strike);
 
-  rows.sort((a, b) => a.strike - b.strike);
-  // Center the window on the ATM strike
+  // Display rows: both sides genuinely quoted, windowed around ATM.
+  const isZeroSide = (c: OptionContract) => c.price === 0 && c.oi === 0 && c.iv === 0 && c.volume === 0;
+  const rows = fullRows.filter(r => !isZeroSide(r.ce) && !isZeroSide(r.pe));
+  if (rows.length === 0) return null;
   let atmIdx = 0;
   for (let i = 1; i < rows.length; i++) {
     if (Math.abs(rows[i].strike - spot) < Math.abs(rows[atmIdx].strike - spot)) atmIdx = i;
@@ -176,7 +197,7 @@ export const parseNseOptionChain = (
   const stamped = records?.timestamp ? new Date(records.timestamp) : null;
   const asOf = stamped && !isNaN(stamped.getTime()) ? stamped.toISOString() : now.toISOString();
 
-  return { rows: rows.slice(start, start + strikesEachSide * 2 + 1), spot, expiry, asOf };
+  return { rows: rows.slice(start, start + strikesEachSide * 2 + 1), fullRows, spot, expiry, asOf };
 };
 
 // ---------------------------------------------------------------------------
@@ -184,7 +205,8 @@ export const parseNseOptionChain = (
 // ---------------------------------------------------------------------------
 
 export interface LiveChainDetail {
-  rows: OptionChainRow[];
+  rows: OptionChainRow[]; // ATM-windowed, both sides quoted — the display chain
+  fullRows: OptionChainRow[]; // every strike of the expiry — the analytics chain
   spot: number;
   expiry: string;
   asOf: string; // NSE's own data timestamp — show it, don't imply "live"

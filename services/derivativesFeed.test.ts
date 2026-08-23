@@ -103,6 +103,21 @@ describe('parseNseOptionChain', () => {
     expect(parseNseOptionChain({ records: { underlyingValue: 0 } }, 5, now)).toBeNull();
   });
 
+  it('fullRows keeps every strike of the expiry, one-sided ones zero-filled', () => {
+    const parsed = parseNseOptionChain(nseResponse(), 2, now)!;
+    // 9 two-sided strikes + the CE-only 25000 row; wrong-expiry row excluded
+    expect(parsed.fullRows).toHaveLength(10);
+    const oneSided = parsed.fullRows.find(r => r.strike === 25000)!;
+    expect(oneSided.ce.price).toBe(10);
+    expect(oneSided.pe.oi).toBe(0); // missing side counts as zero OI, not dropped
+    // The display window still excludes the one-sided strike
+    expect(parsed.rows.some(r => r.strike === 25000)).toBe(false);
+    // Analytics on fullRows see OI the display window can't
+    const fullCallOi = parsed.fullRows.reduce((s, r) => s + r.ce.oi, 0);
+    const windowCallOi = parsed.rows.reduce((s, r) => s + r.ce.oi, 0);
+    expect(fullCallOi).toBeGreaterThan(windowCallOi);
+  });
+
   it("surfaces NSE's own data timestamp as asOf, falling back to now", () => {
     const withStamp = nseResponse();
     withStamp.records!.timestamp = '22-Aug-2026 15:30:00';

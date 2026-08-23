@@ -1,6 +1,15 @@
 import React from 'react';
 import { OptionChainRow, OptionContract } from '../types';
 import { MousePointer2, TrendingUp, TrendingDown, Crosshair } from 'lucide-react';
+import { classifyBuildup, BuildupKind } from '../domain/derivatives/oiAnalytics.engine';
+
+const BUILDUP_LABEL: Record<BuildupKind, string> = {
+  LONG_BUILDUP: 'Long buildup — premium ↑ with OI ↑ (fresh longs)',
+  SHORT_BUILDUP: 'Short buildup — premium ↓ with OI ↑ (fresh writing)',
+  SHORT_COVERING: 'Short covering — premium ↑ with OI ↓ (writers exiting)',
+  LONG_UNWINDING: 'Long unwinding — premium ↓ with OI ↓ (longs exiting)',
+  NEUTRAL: 'No clear buildup'
+};
 
 interface OptionChainProps {
   data: OptionChainRow[];
@@ -13,11 +22,18 @@ interface OptionChainProps {
 }
 
 // Signed OI-change cell: fresh writing (+) vs unwinding (−), in thousands.
-const OiDelta: React.FC<{ value: number }> = ({ value }) => (
-  <span className={`font-mono ${value > 0 ? 'text-emerald-600' : value < 0 ? 'text-red-500' : 'text-gray-300'}`}>
-    {value === 0 ? '0' : `${value > 0 ? '+' : '−'}${(Math.abs(value) / 1000).toFixed(0)}K`}
-  </span>
-);
+// Tooltip carries the classic price x OI buildup quadrant for the contract.
+const OiDelta: React.FC<{ contract: OptionContract }> = ({ contract }) => {
+  const value = contract.oiChange;
+  return (
+    <span
+      className={`font-mono ${value > 0 ? 'text-emerald-600' : value < 0 ? 'text-red-500' : 'text-gray-300'}`}
+      title={BUILDUP_LABEL[classifyBuildup(contract.change, value)]}
+    >
+      {value === 0 ? '0' : `${value > 0 ? '+' : '−'}${(Math.abs(value) / 1000).toFixed(0)}K`}
+    </span>
+  );
+};
 
 export const OptionChain: React.FC<OptionChainProps> = ({ data, spotPrice, symbol, onSelectContract, expiry, asOf, source }) => {
   const strikeStep = data.length >= 2 ? data[1].strike - data[0].strike : spotPrice * 0.01;
@@ -90,7 +106,7 @@ export const OptionChain: React.FC<OptionChainProps> = ({ data, spotPrice, symbo
                                     <div className="absolute inset-y-1 left-0 bg-emerald-100 opacity-20 rounded-r" style={{ width: `${Math.min(100, row.ce.oi/20000)}%` }}></div>
                                 </td>
                                 <td className={`py-2 text-[10px] ${isITM_CE ? 'bg-emerald-50/10' : ''}`}>
-                                    <OiDelta value={row.ce.oiChange} />
+                                    <OiDelta contract={row.ce} />
                                 </td>
                                 <td className={`py-2 text-gray-400 ${isITM_CE ? 'bg-emerald-50/10' : ''}`}>{row.ce.iv.toFixed(1)}</td>
                                 <td
@@ -115,7 +131,7 @@ export const OptionChain: React.FC<OptionChainProps> = ({ data, spotPrice, symbo
                                 </td>
                                 <td className={`py-2 text-gray-400 ${isITM_PE ? 'bg-red-50/10' : ''}`}>{row.pe.iv.toFixed(1)}</td>
                                 <td className={`py-2 text-[10px] ${isITM_PE ? 'bg-red-50/10' : ''}`}>
-                                    <OiDelta value={row.pe.oiChange} />
+                                    <OiDelta contract={row.pe} />
                                 </td>
                                 <td className={`py-2 relative border-l border-dashed border-gray-100 ${isITM_PE ? 'bg-red-50/10' : ''}`}>
                                     <span className="relative z-10 text-gray-600">{(row.pe.oi / 100000).toFixed(1)}</span>
