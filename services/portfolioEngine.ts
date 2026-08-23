@@ -99,7 +99,8 @@ const withPrice = (
   pos: PortfolioPosition,
   price: number,
   priceSource: 'LIVE_NAV' | 'LIVE_QUOTE',
-  priceAsOf: string
+  priceAsOf: string,
+  dayChangePerUnit?: number
 ): PortfolioPosition => {
   const currentValue = pos.quantity * price;
   return {
@@ -111,7 +112,11 @@ const withPrice = (
       (((currentValue - pos.investedValue) / pos.investedValue) * 100).toFixed(2)
     ),
     priceSource,
-    priceAsOf
+    priceAsOf,
+    dayPnl:
+      dayChangePerUnit !== undefined
+        ? parseFloat((pos.quantity * dayChangePerUnit).toFixed(2))
+        : undefined
   };
 };
 
@@ -132,11 +137,11 @@ const repriceWithLiveFeeds = async (
     positions.map(async (pos) => {
       if (pos.assetType === 'STOCK') {
         const quote = equityQuotes.get(pos.symbol);
-        return quote ? withPrice(pos, quote.price, 'LIVE_QUOTE', quote.asOf) : pos;
+        return quote ? withPrice(pos, quote.price, 'LIVE_QUOTE', quote.asOf, quote.change) : pos;
       }
       if (pos.assetType === 'CRYPTO') {
         const quote = cryptoQuotes.get(pos.symbol);
-        return quote ? withPrice(pos, quote.price, 'LIVE_QUOTE', quote.asOf) : pos;
+        return quote ? withPrice(pos, quote.price, 'LIVE_QUOTE', quote.asOf, quote.change) : pos;
       }
       if (pos.assetType === 'MF') {
         const latest = await getLatestNavByName(pos.name || pos.symbol);
@@ -195,7 +200,12 @@ export const calculatePortfolio = async (mode: ExecutionMode = 'LIVE'): Promise<
   const totalValue = positions.reduce((acc, pos) => acc + pos.currentValue, 0);
   const totalInvested = positions.reduce((acc, pos) => acc + pos.investedValue, 0);
   const totalPnl = totalValue - totalInvested;
-  const dayPnl = totalValue * 0.012; 
+  // Real day P&L: sum of quantity x day-change over positions whose feed
+  // reported one (stocks/crypto). MF NAVs are daily marks, so they add 0
+  // rather than an invented intraday move.
+  const dayPnl = parseFloat(
+    positions.reduce((acc, pos) => acc + (pos.dayPnl ?? 0), 0).toFixed(2)
+  );
 
   return {
     totalValue,

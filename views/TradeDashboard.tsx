@@ -17,6 +17,7 @@ import { OptionChain } from '../components/OptionChain';
 import { AlertManager } from '../components/AlertManager';
 import { getAlerts } from '../services/alertService';
 import { ContextPanel } from '../components/ContextPanel';
+import { getIntradayHistory, IntradayBar } from '../services/marketFeed';
 
 export const TradeDashboard = () => {
   const [selectedSymbol, setSelectedSymbol] = useState('RELIANCE');
@@ -35,6 +36,24 @@ export const TradeDashboard = () => {
   const [showEMA, setShowEMA] = useState(true);
   const [showCPR, setShowCPR] = useState(true);
   const [showVolume, setShowVolume] = useState(true);
+
+  // Chart timeframe: intraday (5m/15m bars from the live feed) or daily.
+  const [timeframe, setTimeframe] = useState<'1D' | '1W' | '3M'>('3M');
+  const [intradayBars, setIntradayBars] = useState<IntradayBar[]>([]);
+
+  useEffect(() => {
+    if (timeframe === '3M') {
+      setIntradayBars([]);
+      return;
+    }
+    let cancelled = false;
+    getIntradayHistory(selectedSymbol, timeframe === '1D' ? '1d' : '5d').then(bars => {
+      if (!cancelled) setIntradayBars(bars);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [timeframe, selectedSymbol]);
   
   // Alert State
   const [showAlertModal, setShowAlertModal] = useState(false);
@@ -158,7 +177,19 @@ export const TradeDashboard = () => {
               <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col min-h-[400px]">
                   <div className="p-2 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
                       <div className="flex space-x-2">
-                        <button 
+                        <div className="flex bg-white border border-gray-200 rounded overflow-hidden mr-1">
+                            {(['1D', '1W', '3M'] as const).map(tf => (
+                                <button
+                                    key={tf}
+                                    onClick={() => setTimeframe(tf)}
+                                    className={`px-2 py-1 text-[10px] font-bold ${timeframe === tf ? 'bg-slate-900 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                                    title={tf === '1D' ? '5-minute bars' : tf === '1W' ? '15-minute bars' : 'Daily bars'}
+                                >
+                                    {tf}
+                                </button>
+                            ))}
+                        </div>
+                        <button
                             onClick={() => setShowCPR(!showCPR)}
                             className={`px-2 py-1 text-[10px] font-bold rounded border ${showCPR ? 'bg-purple-100 text-purple-700 border-purple-200' : 'text-gray-500 bg-white border-gray-200'}`}
                         >
@@ -176,14 +207,24 @@ export const TradeDashboard = () => {
                       </div>
                   </div>
                   <div className="flex-1 bg-slate-900 relative">
-                       <TradingViewChart 
-                          data={intelligence.stockData.history} 
-                          cpr={intelligence.technical.cpr}
-                          showCPR={showCPR}
-                          showEMA={showEMA}
-                          showVolume={showVolume}
-                          emaData={emaData}
-                       />
+                       {/* Intraday timeframes render 5m/15m bars from the live
+                           feed; EMA/CPR overlays are daily-derived, so they
+                           only show on the daily view. */}
+                       {timeframe !== '3M' && intradayBars.length === 0 ? (
+                          <div className="absolute inset-0 flex items-center justify-center text-xs text-slate-400">
+                              No intraday bars available (feed unreachable or market closed too long).
+                          </div>
+                       ) : (
+                          <TradingViewChart
+                             key={`${timeframe}-${intradayBars.length}`}
+                             data={timeframe === '3M' ? intelligence.stockData.history : intradayBars}
+                             cpr={intelligence.technical.cpr}
+                             showCPR={showCPR && timeframe === '3M'}
+                             showEMA={showEMA && timeframe === '3M'}
+                             showVolume={showVolume}
+                             emaData={emaData}
+                          />
+                       )}
                   </div>
               </div>
 

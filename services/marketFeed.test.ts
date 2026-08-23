@@ -4,6 +4,7 @@ import {
   toYahooSymbol,
   parseYahooQuote,
   parseYahooHistory,
+  parseYahooIntradayBars,
   parseYahooDividends,
   YahooChartResponse
 } from './marketFeed';
@@ -112,5 +113,44 @@ describe('parseYahooHistory', () => {
 
   it('returns an empty array for malformed payloads', () => {
     expect(parseYahooHistory({} as YahooChartResponse)).toHaveLength(0);
+  });
+});
+
+describe('parseYahooIntradayBars', () => {
+  it('keeps intraday resolution: unique epochs, minute-level dates', () => {
+    // Three 5-minute bars: 09:15, 09:20, 09:25 IST on 2026-08-21
+    const t0 = 1787543100; // arbitrary epoch anchor
+    const res: YahooChartResponse = {
+      chart: {
+        result: [
+          {
+            timestamp: [t0, t0 + 300, t0 + 600],
+            indicators: {
+              quote: [
+                {
+                  open: [100, 100.5, null], // third row incomplete — dropped
+                  high: [100.6, 101, 101.2],
+                  low: [99.8, 100.2, 100.6],
+                  close: [100.5, 100.9, 101.1],
+                  volume: [12000, 9000, 7000]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    };
+    const bars = parseYahooIntradayBars(res);
+    expect(bars).toHaveLength(2);
+    expect(bars[0].epoch).toBe(t0);
+    expect(bars[1].epoch).toBe(t0 + 300);
+    expect(bars[1].epoch - bars[0].epoch).toBe(300); // 5-minute spacing survives
+    expect(bars[0].date).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/); // minute-level label
+    expect(bars[0].close).toBeCloseTo(100.5, 2);
+    expect(bars[0].volume).toBe(12000);
+  });
+
+  it('returns an empty array for malformed payloads', () => {
+    expect(parseYahooIntradayBars({} as YahooChartResponse)).toHaveLength(0);
   });
 });

@@ -228,6 +228,87 @@ export const getLiveHistory = async (symbol: string, days = 90): Promise<OhlcvBa
   return request.then(bars => bars.slice(-days));
 };
 
+// ---------------------------------------------------------------------------
+// Intraday bars (5m/15m) — Yahoo serves these on the same chart endpoint
+// ---------------------------------------------------------------------------
+
+export interface IntradayBar {
+  date: string; // "yyyy-MM-dd HH:mm" (local), for legends
+  epoch: number; // unix seconds — the chart's time axis
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+/** Parse a chart response keeping intraday resolution (pure). */
+export const parseYahooIntradayBars = (res: YahooChartResponse): IntradayBar[] => {
+  const result = res?.chart?.result?.[0];
+  const timestamps = result?.timestamp ?? [];
+  const quote = result?.indicators?.quote?.[0];
+  if (!quote || timestamps.length === 0) return [];
+
+  const bars: IntradayBar[] = [];
+  for (let i = 0; i < timestamps.length; i++) {
+    const open = quote.open?.[i];
+    const high = quote.high?.[i];
+    const low = quote.low?.[i];
+    const close = quote.close?.[i];
+    if (open == null || high == null || low == null || close == null) continue; // gaps/partial rows
+    const when = new Date(timestamps[i] * 1000);
+    const hh = String(when.getHours()).padStart(2, '0');
+    const mm = String(when.getMinutes()).padStart(2, '0');
+    bars.push({
+      date: `${when.toISOString().split('T')[0]} ${hh}:${mm}`,
+      epoch: timestamps[i],
+      open: parseFloat(open.toFixed(2)),
+      high: parseFloat(high.toFixed(2)),
+      low: parseFloat(low.toFixed(2)),
+      close: parseFloat(close.toFixed(2)),
+      volume: quote.volume?.[i] ?? 0
+    });
+  }
+  return bars;
+};
+
+const INTRADAY_CACHE_TTL_MS = 60 * 1000; // intraday bars actually move
+const intradayCache = new Map<string, { bars: IntradayBar[]; ts: number }>();
+const pendingIntraday = new Map<string, Promise<IntradayBar[]>>();
+
+/**
+ * Intraday OHLCV. '1d' uses 5-minute bars, '5d' 15-minute. Empty on
+ * failure (with last-known-good fallback), like the daily feed.
+ */
+export const getIntradayHistory = async (
+  symbol: string,
+  range: '1d' | '5d' = '1d'
+): Promise<IntradayBar[]> => {
+  const interval = range === '1d' ? '5m' : '15m';
+  const key = `${symbol}:${range}:${interval}`;
+
+  const cached = intradayCache.get(key);
+  if (cached && Date.now() - cached.ts < INTRADAY_CACHE_TTL_MS) return cached.bars;
+
+  const pending = pendingIntraday.get(key);
+  if (pending) return pending;
+
+  const request = (async (): Promise<IntradayBar[]> => {
+    try {
+      const res = await fetchChart(toYahooSymbol(symbol), range, interval);
+      const bars = parseYahooIntradayBars(res);
+      if (bars.length > 0) intradayCache.set(key, { bars, ts: Date.now() });
+      return bars;
+    } catch {
+      return cached?.bars ?? [];
+    } finally {
+      pendingIntraday.delete(key);
+    }
+  })();
+  pendingIntraday.set(key, request);
+  return request;
+};
+
 export interface DividendEvent {
   date: string; // yyyy-MM-dd (ex-date)
   amount: number; // per share

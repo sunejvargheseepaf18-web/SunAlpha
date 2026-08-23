@@ -61,7 +61,9 @@ export interface StockData {
   marketCap: string;
   peRatio: number;
   sector: string;
-  history: { date: string; open: number; close: number; high: number; low: number; volume: number }[];
+  // epoch (seconds) present on intraday bars — charts use it for the time
+  // axis since date strings only resolve to a day.
+  history: { date: string; open: number; close: number; high: number; low: number; volume: number; epoch?: number }[];
 }
 
 export interface MutualFundData {
@@ -116,6 +118,9 @@ export interface PortfolioPosition {
   // Pricing provenance — lets the UI show "NAV as of <date>" vs stale/fallback
   priceSource?: 'LIVE_NAV' | 'LIVE_QUOTE' | 'MOCK';
   priceAsOf?: string; // ISO date of the price/NAV used
+  // Today's P&L for this position (quantity x the quote's day change);
+  // absent when the feed gave no day change (e.g. MF NAVs).
+  dayPnl?: number;
   // Capital Intelligence
   marginUsed?: number; // How much margin this position consumes
   leverage?: number; // 1x = Cash, >1x = Margin

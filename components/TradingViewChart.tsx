@@ -54,8 +54,12 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
       wickDownColor: '#ef4444' 
     });
 
+    // Daily bars key by date string; intraday bars carry epoch seconds
+    // (date strings only resolve to a day, so intraday needs the epoch).
+    const timeOf = (d: (typeof data)[number]) => (d.epoch ?? d.date) as any;
+
     const candleData = data.map(d => ({
-      time: d.date,
+      time: timeOf(d),
       open: d.open,
       high: d.high,
       low: d.low,
@@ -74,7 +78,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
         scaleMargins: { top: 0.8, bottom: 0 },
       });
       const volData = data.map(d => ({
-        time: d.date,
+        time: timeOf(d),
         value: d.volume,
         color: d.close >= d.open ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
       }));
@@ -107,7 +111,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
              crosshairMarkerVisible: false,
          });
          // Project level across all data points
-         const lineData = data.map(d => ({ time: d.date, value: price }));
+         const lineData = data.map(d => ({ time: timeOf(d), value: price }));
          line.setData(lineData);
          return line;
        };
@@ -119,7 +123,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
     // 6. Crosshair OHLC readout (TradingView-style top-left legend).
     // Direct DOM writes on crosshair moves — no React re-render per pixel.
-    const barByTime = new Map(data.map(d => [d.date, d]));
+    const barByTime = new Map(data.map(d => [String(timeOf(d)), d]));
     const renderLegend = (d?: (typeof data)[number]) => {
       const el = legendRef.current;
       if (!el) return;
@@ -142,8 +146,8 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
     };
     renderLegend();
     chart.subscribeCrosshairMove(param => {
-      const time = param?.time as string | undefined;
-      renderLegend(time ? barByTime.get(time) : undefined);
+      const time = param?.time as string | number | undefined;
+      renderLegend(time !== undefined ? barByTime.get(String(time)) : undefined);
     });
 
     // Handle Resize
