@@ -4,6 +4,7 @@ import {
   toYahooSymbol,
   parseYahooQuote,
   parseYahooHistory,
+  parseYahooDividends,
   YahooChartResponse
 } from './marketFeed';
 
@@ -69,6 +70,34 @@ describe('parseYahooQuote', () => {
     expect(
       parseYahooQuote('X', { chart: { result: [{ meta: { regularMarketPrice: 0 } }] } })
     ).toBeNull();
+  });
+});
+
+describe('parseYahooDividends', () => {
+  it('extracts, sorts and sanitizes dividend events', () => {
+    const res: YahooChartResponse = {
+      chart: {
+        result: [
+          {
+            events: {
+              dividends: {
+                '1755763200': { amount: 10, date: 1755763200 },
+                '1745000000': { amount: 5.5, date: 1745000000 },
+                bad: { amount: 0, date: 1745000001 } // zero amount — dropped
+              }
+            }
+          }
+        ]
+      }
+    };
+    const events = parseYahooDividends(res);
+    expect(events).toHaveLength(2);
+    expect(events[0].amount).toBe(5.5); // sorted ascending by date
+    expect(events[1].date).toBe(new Date(1755763200 * 1000).toISOString().split('T')[0]);
+  });
+
+  it('returns empty for responses without events', () => {
+    expect(parseYahooDividends({} as YahooChartResponse)).toHaveLength(0);
   });
 });
 

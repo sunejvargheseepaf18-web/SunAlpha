@@ -66,6 +66,9 @@ export interface YahooChartResponse {
         regularMarketTime?: number;
       };
       timestamp?: number[];
+      events?: {
+        dividends?: Record<string, { amount?: number; date?: number }>;
+      };
       indicators?: {
         quote?: Array<{
           open?: (number | null)[];
@@ -145,8 +148,14 @@ export const parseYahooHistory = (res: YahooChartResponse): OhlcvBar[] => {
 
 const quoteCache = new Map<string, { quote: LiveQuote; ts: number }>();
 
-const fetchChart = async (yahooSymbol: string, range: string, interval: string): Promise<YahooChartResponse> => {
-  const url = `${FEED_BASE}/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=${range}&interval=${interval}`;
+const fetchChart = async (
+  yahooSymbol: string,
+  range: string,
+  interval: string,
+  events?: string
+): Promise<YahooChartResponse> => {
+  const eventsParam = events ? `&events=${events}` : '';
+  const url = `${FEED_BASE}/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=${range}&interval=${interval}${eventsParam}`;
   const res = await fetch(url, { headers: { Accept: 'application/json' } });
   if (!res.ok) throw new Error(`market feed ${res.status} for ${yahooSymbol}`);
   return res.json() as Promise<YahooChartResponse>;
@@ -173,6 +182,35 @@ export const getLiveHistory = async (symbol: string, days = 90): Promise<OhlcvBa
   try {
     const res = await fetchChart(toYahooSymbol(symbol), range, '1d');
     return parseYahooHistory(res).slice(-days);
+  } catch {
+    return [];
+  }
+};
+
+export interface DividendEvent {
+  date: string; // yyyy-MM-dd (ex-date)
+  amount: number; // per share
+}
+
+/** Parse the events.dividends map of a chart response (pure). */
+export const parseYahooDividends = (res: YahooChartResponse): DividendEvent[] => {
+  const dividends = res?.chart?.result?.[0]?.events?.dividends;
+  if (!dividends) return [];
+  return Object.values(dividends)
+    .filter(d => typeof d.amount === 'number' && d.amount! > 0 && typeof d.date === 'number')
+    .map(d => ({
+      date: new Date((d.date as number) * 1000).toISOString().split('T')[0],
+      amount: parseFloat((d.amount as number).toFixed(4))
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+};
+
+/** Dividend events (ex-dates + per-share amounts) for a symbol. Empty on failure. */
+export const getDividendHistory = async (symbol: string, days = 365): Promise<DividendEvent[]> => {
+  const range = days <= 366 ? '1y' : days <= 731 ? '2y' : '5y';
+  try {
+    const res = await fetchChart(toYahooSymbol(symbol), range, '1d', 'div');
+    return parseYahooDividends(res);
   } catch {
     return [];
   }

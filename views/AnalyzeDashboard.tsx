@@ -5,6 +5,8 @@ import { calculatePortfolio, generateAIInsights, fetchPortfolioHistory } from '.
 import { buildPortfolioAnalytics } from '../services/portfolioAnalytics';
 import { optimizePortfolio, OptimizationResult } from '../services/optimizerService';
 import { OptimizerPanel } from '../components/OptimizerPanel';
+import { buildIncomeReport, IncomeReport } from '../services/incomeService';
+import { IncomePanel } from '../components/IncomePanel';
 import { PerformanceMetrics } from '../domain/analytics/performance.engine';
 import { PerformanceStats } from '../components/PerformanceStats';
 import { calculateDrift } from '../services/rebalanceEngine';
@@ -102,6 +104,7 @@ export const AnalyzeDashboard: React.FC<AnalyzeDashboardProps> = ({ initialRebal
   const [history, setHistory] = useState<PortfolioHistoryPoint[]>([]);
   const [perfMetrics, setPerfMetrics] = useState<PerformanceMetrics | null>(null);
   const [optimization, setOptimization] = useState<OptimizationResult | null>(null);
+  const [income, setIncome] = useState<IncomeReport | null>(null);
   const [insights, setInsights] = useState<Insight[]>([]);
   const [rebalanceSim, setRebalanceSim] = useState<RebalanceSimulation | null>(null);
 
@@ -128,6 +131,9 @@ export const AnalyzeDashboard: React.FC<AnalyzeDashboardProps> = ({ initialRebal
 
       // Data-driven allocation proposals (min-vol / max-Sharpe / risk parity)
       optimizePortfolio(p.positions).then(setOptimization);
+
+      // Dividend income from real payout events (best-effort)
+      buildIncomeReport(p.positions).then(setIncome);
       setReports(savedReports);
       
       const sim = calculateDrift(p.positions, 'AGGRESSIVE'); 
@@ -328,6 +334,8 @@ export const AnalyzeDashboard: React.FC<AnalyzeDashboardProps> = ({ initialRebal
                 </div>
 
                 {optimization && <OptimizerPanel result={optimization} />}
+
+                {income && <IncomePanel report={income} />}
 
                 {/* AI Insights Panel */}
                 <div className="bg-gradient-to-b from-blue-50 to-white p-6 rounded-2xl shadow-sm border border-blue-100">
