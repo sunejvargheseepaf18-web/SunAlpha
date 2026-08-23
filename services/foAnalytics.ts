@@ -1,4 +1,5 @@
 import { OptionChainRow, OptionContract } from '../types';
+import { getLiveOptionChain } from './derivativesFeed';
 
 const generateOptionContract = (
   strike: number, 
@@ -33,6 +34,12 @@ const generateOptionContract = (
 };
 
 export const fetchOptionChain = async (symbol: string, spotPrice: number): Promise<OptionChainRow[]> => {
+  // Live path: real NSE chain (true OI/IV/volume, Black-Scholes greeks
+  // computed from NSE's implied volatility). Falls through to the
+  // simulated chain when NSE is unreachable.
+  const live = await getLiveOptionChain(symbol);
+  if (live && live.length > 0) return live;
+
   // Generate strikes around spot
   const step = symbol === 'NIFTY' ? 50 : symbol === 'BANKNIFTY' ? 100 : spotPrice * 0.02;
   const roundedSpot = Math.round(spotPrice / step) * step;

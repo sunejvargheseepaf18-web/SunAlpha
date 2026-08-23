@@ -27,6 +27,7 @@ SunAlpha prices holdings from live feeds, falling back to simulated data when a 
 |------|--------|-------|
 | Mutual fund NAVs | [api.mfapi.in](https://www.mfapi.in/) (AMFI mirror) | Free, CORS-enabled, no key. Scheme linking in `services/mfNavService.ts`. |
 | Equity/index quotes & OHLCV | Yahoo Finance v8 chart API | Free, no key. NSE via `.NS`, indices via `^NSEI`/`^BSESN`. No browser CORS, so the Vite dev server proxies it at `/yahoo-api` (see `vite.config.ts`). For production, set `MARKET_FEED_BASE` in `.env.local` to your own relay. |
+| Option chains (F&O) | NSE option-chain JSON | Free; the only public source of full Indian chains (OI, IV, volume per strike). Needs browser-like headers + cookie session, proxied at `/nse-api` with a priming request (`services/derivativesFeed.ts`). NSE gives IV but no greeks — SunAlpha computes Black-Scholes greeks from NSE's IV. Override relay with `NSE_FEED_BASE`. |
 
 Upgrade path for production-grade Indian market data (implement as additional
 providers behind `services/marketFeed.ts`):

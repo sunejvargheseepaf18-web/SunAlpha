@@ -16,6 +16,19 @@ export default defineConfig(({ mode }) => {
             changeOrigin: true,
             rewrite: (p) => p.replace(/^\/yahoo-api/, ''),
           },
+          // Live option chains (services/derivativesFeed.ts). NSE requires
+          // browser-like headers + a cookie session and has no CORS.
+          '/nse-api': {
+            target: 'https://www.nseindia.com',
+            changeOrigin: true,
+            rewrite: (p) => p.replace(/^\/nse-api/, ''),
+            headers: {
+              'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+              'Accept-Language': 'en-US,en;q=0.9',
+              Referer: 'https://www.nseindia.com/option-chain',
+            },
+          },
         },
       },
       plugins: [react()],
