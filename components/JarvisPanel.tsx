@@ -1,6 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { askAssistant } from '../services/assistantService';
-import { Sparkles, X, SendHorizontal, Loader2 } from 'lucide-react';
+import {
+  isVoiceInputSupported,
+  isVoiceOutputSupported,
+  startListening,
+  speak,
+  stopSpeaking,
+  ListenSession
+} from '../services/speechService';
+import { Sparkles, X, SendHorizontal, Loader2, Mic, Volume2, VolumeX } from 'lucide-react';
 
 // Jarvis-style assistant: floating "arc reactor" action button + dark
 // glass chat overlay (the open-Jarvis UI pattern). Structured commands are
@@ -19,13 +27,55 @@ const WELCOME: Message = {
   text: 'Online. Ask about your portfolio, advice, prices, scans, the market regime, tax or alerts — or anything else.'
 };
 
+const VOICE_PREF_KEY = 'sunalpha.jarvis.voiceReplies';
+
 export const JarvisPanel: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [voiceReplies, setVoiceReplies] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(VOICE_PREF_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listenRef = useRef<ListenSession | null>(null);
+
+  const toggleVoiceReplies = () => {
+    setVoiceReplies(v => {
+      const next = !v;
+      if (!next) stopSpeaking();
+      try {
+        localStorage.setItem(VOICE_PREF_KEY, next ? '1' : '0');
+      } catch {
+        // preference just won't persist
+      }
+      return next;
+    });
+  };
+
+  const startVoiceInput = () => {
+    if (listening || busy) return;
+    stopSpeaking(); // don't transcribe our own voice
+    const session = startListening(
+      interim => setInput(interim),
+      final => void send(final), // final utterance auto-sends
+      () => setListening(false)
+    );
+    if (session) {
+      listenRef.current = session;
+      setListening(true);
+    }
+  };
+
+  const stopVoiceInput = () => {
+    listenRef.current?.stop();
+  };
 
   // Ctrl/Cmd+K toggles, Escape closes — command-palette convention.
   useEffect(() => {
@@ -58,7 +108,17 @@ export const JarvisPanel: React.FC = () => {
     const reply = await askAssistant(text);
     setMessages(m => [...m, { role: 'jarvis', text: reply.text }]);
     setBusy(false);
+    // Voice leg: speak the reply (rewritten for speech) when enabled.
+    if (voiceReplies) speak(reply.text);
   };
+
+  // Closing the panel silences any in-flight speech and listening session.
+  useEffect(() => {
+    if (!open) {
+      stopSpeaking();
+      listenRef.current?.stop();
+    }
+  }, [open]);
 
   return (
     <>
@@ -88,9 +148,20 @@ export const JarvisPanel: React.FC = () => {
                 <p className="text-[10px] text-cyan-300/70 mt-0.5">SunAlpha assistant · Ctrl+K</p>
               </div>
             </div>
-            <button onClick={() => setOpen(false)} className="p-1.5 text-white/50 hover:text-white rounded-lg hover:bg-white/10">
-              <X size={16} />
-            </button>
+            <div className="flex items-center space-x-1">
+              {isVoiceOutputSupported() && (
+                <button
+                  onClick={toggleVoiceReplies}
+                  className={`p-1.5 rounded-lg hover:bg-white/10 ${voiceReplies ? 'text-cyan-300' : 'text-white/40 hover:text-white'}`}
+                  title={voiceReplies ? 'Voice replies ON — Jarvis speaks answers' : 'Voice replies OFF'}
+                >
+                  {voiceReplies ? <Volume2 size={15} /> : <VolumeX size={15} />}
+                </button>
+              )}
+              <button onClick={() => setOpen(false)} className="p-1.5 text-white/50 hover:text-white rounded-lg hover:bg-white/10">
+                <X size={16} />
+              </button>
+            </div>
           </div>
 
           {/* Messages */}
@@ -138,9 +209,27 @@ export const JarvisPanel: React.FC = () => {
               ref={inputRef}
               value={input}
               onChange={e => setInput(e.target.value)}
-              placeholder="Ask Jarvis…"
-              className="flex-1 px-3 py-2 text-xs bg-white/10 border border-white/10 rounded-xl text-white placeholder-white/30 outline-none focus:border-cyan-400/50"
+              placeholder={listening ? 'Listening…' : 'Ask Jarvis…'}
+              className={`flex-1 px-3 py-2 text-xs bg-white/10 border rounded-xl text-white placeholder-white/30 outline-none ${
+                listening ? 'border-cyan-400/70' : 'border-white/10 focus:border-cyan-400/50'
+              }`}
             />
+            {isVoiceInputSupported() && (
+              <button
+                type="button"
+                onClick={listening ? stopVoiceInput : startVoiceInput}
+                disabled={busy}
+                className={`relative p-2 rounded-xl disabled:opacity-40 ${
+                  listening
+                    ? 'bg-red-500/90 text-white'
+                    : 'bg-white/10 text-cyan-200 hover:bg-cyan-500/20 border border-cyan-500/20'
+                }`}
+                title={listening ? 'Stop listening' : 'Tap to talk'}
+              >
+                {listening && <span className="absolute inset-0 rounded-xl bg-red-400/40 animate-ping" />}
+                <Mic size={15} className="relative" />
+              </button>
+            )}
             <button
               type="submit"
               disabled={busy || !input.trim()}
