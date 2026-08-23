@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PriceAlert } from '../types';
 import { getAlerts, createAlert, deleteAlert } from '../services/alertService';
 import { Bell, BellRing, X, Trash2, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
+import { WebhookPanel } from './WebhookPanel';
 
 interface AlertManagerProps {
   symbol: string;
@@ -73,7 +74,7 @@ export const AlertManager: React.FC<AlertManagerProps> = ({ symbol, currentPrice
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="p-6 max-h-[75vh] overflow-y-auto">
           {/* Create Form */}
           <form onSubmit={handleAddAlert} className="mb-8">
             <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 block">Alert Condition</label>
@@ -144,6 +145,9 @@ export const AlertManager: React.FC<AlertManagerProps> = ({ symbol, currentPrice
               )}
             </div>
           </div>
+
+          {/* Webhook automation (global — fires for every alert) */}
+          <WebhookPanel />
         </div>
       </div>
     </div>

@@ -7,6 +7,7 @@
 import { PriceAlert } from '../types';
 import { evaluateAlerts, TriggeredAlert } from '../domain/alerts/alert.engine';
 import { getLiveQuotes } from './marketFeed';
+import { dispatchAlertWebhooks } from './webhookService';
 
 const STORAGE_KEY = 'sunalpha.alerts';
 const POLL_INTERVAL_MS = 60 * 1000;
@@ -106,6 +107,9 @@ const deliver = (event: TriggeredAlert): void => {
       // one bad listener shouldn't stop the rest
     }
   });
+  // Channel 3: user-defined webhooks (Discord/Slack/automation endpoints).
+  // Fire-and-forget with its own retry/backoff — never blocks evaluation.
+  void dispatchAlertWebhooks(event);
 };
 
 // --- Evaluation loop -------------------------------------------------------
