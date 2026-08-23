@@ -57,7 +57,8 @@ export const SimpleAreaChart: React.FC<ChartProps> = ({ data, color = '#10b981',
   );
 };
 
-export const ComparisonLineChart: React.FC<ChartProps> = ({ data, height = 300 }) => {
+export const ComparisonLineChart: React.FC<ChartProps & { seriesNames?: [string, string] }> = ({ data, height = 300, seriesNames }) => {
+  const [primaryName, secondaryName] = seriesNames ?? ['Your Portfolio', 'NIFTY 50'];
   return (
     <div style={{ width: '100%', height }}>
       <ResponsiveContainer>
@@ -84,8 +85,8 @@ export const ComparisonLineChart: React.FC<ChartProps> = ({ data, height = 300 }
           <Legend verticalAlign="top" height={36}/>
           <Line 
             type="monotone" 
-            dataKey="portfolioValue" 
-            name="Your Portfolio" 
+            dataKey="portfolioValue"
+            name={primaryName}
             stroke="#3b82f6" 
             strokeWidth={2} 
             dot={false}
@@ -93,8 +94,8 @@ export const ComparisonLineChart: React.FC<ChartProps> = ({ data, height = 300 }
           />
           <Line 
             type="monotone" 
-            dataKey="benchmarkValue" 
-            name="NIFTY 50" 
+            dataKey="benchmarkValue"
+            name={secondaryName}
             stroke="#94a3b8" 
             strokeWidth={2} 
             strokeDasharray="4 4" 
@@ -192,12 +193,12 @@ export const TechChart: React.FC<ChartProps> = ({ data, height = 400, cpr }) => 
           {cpr && (
             <>
               {/* Shade the CPR Zone */}
-              <ReferenceArea 
-                y1={cpr.bc} 
-                y2={cpr.tc} 
-                fill="#6366f1" 
-                fillOpacity={0.15} 
-                strokeOpacity={0}
+              {/* recharts 3.x typings omit SVG presentation props here; they
+                  are valid at runtime, so pass them through a spread. */}
+              <ReferenceArea
+                y1={cpr.bc}
+                y2={cpr.tc}
+                {...({ fill: '#6366f1', fillOpacity: 0.15, strokeOpacity: 0 } as any)}
               />
               {/* Draw Lines */}
               <ReferenceLine y={cpr.tc} stroke="#6366f1" strokeDasharray="3 3" strokeOpacity={0.5} label={{ position: 'right', value: 'TC', fill: '#6366f1', fontSize: 10 }} />

@@ -6,6 +6,7 @@ import {
   STRATEGY_CATALOG,
   BacktestResult
 } from '../services/backtestService';
+import { ComparisonLineChart } from './Charts';
 
 // Runs the built-in strategies over the symbol's real 1-year feed history
 // and reports results next to a cost-aware buy & hold benchmark. Educational
@@ -83,6 +84,19 @@ export const BacktestPanel: React.FC<{ symbol: string; isMf?: boolean }> = ({ sy
 
       {!loading && result && (
         <>
+          {/* Equity curve vs cost-aware buy & hold, both indexed to 100 */}
+          <ComparisonLineChart
+            height={220}
+            seriesNames={[strategy.name, 'Buy & Hold']}
+            data={result.equityCurve.map((p, i) => ({
+              date: p.date,
+              portfolioValue: parseFloat(((p.value / result.equityCurve[0].value) * 100).toFixed(2)),
+              benchmarkValue: parseFloat(
+                ((result.buyHoldCurve[i]?.value ?? p.value) / result.buyHoldCurve[0].value * 100).toFixed(2)
+              )
+            }))}
+          />
+
           <div className="grid grid-cols-3 md:grid-cols-7 gap-3 py-3 border-y border-gray-100">
             <Stat
               label="Strategy Return"

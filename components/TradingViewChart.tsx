@@ -11,15 +11,16 @@ interface TradingViewChartProps {
   emaData?: { time: string; value: number }[];
 }
 
-export const TradingViewChart: React.FC<TradingViewChartProps> = ({ 
-  data, 
-  cpr, 
-  showEMA = true, 
-  showCPR = true, 
+export const TradingViewChart: React.FC<TradingViewChartProps> = ({
+  data,
+  cpr,
+  showEMA = true,
+  showCPR = true,
   showVolume = true,
-  emaData 
+  emaData
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
+  const legendRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
 
   useEffect(() => {
@@ -116,6 +117,35 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
        createLevel(cpr.bc, '#818cf8', 2, 'BC');    // Indigo dashed
     }
 
+    // 6. Crosshair OHLC readout (TradingView-style top-left legend).
+    // Direct DOM writes on crosshair moves — no React re-render per pixel.
+    const barByTime = new Map(data.map(d => [d.date, d]));
+    const renderLegend = (d?: (typeof data)[number]) => {
+      const el = legendRef.current;
+      if (!el) return;
+      const bar = d ?? data[data.length - 1];
+      if (!bar) {
+        el.textContent = '';
+        return;
+      }
+      const change = bar.close - bar.open;
+      const pct = bar.open > 0 ? (change / bar.open) * 100 : 0;
+      const tone = change >= 0 ? '#10b981' : '#ef4444';
+      el.innerHTML =
+        `<span style="color:#94a3b8">${bar.date}</span>` +
+        `  O <span style="color:${tone}">${bar.open.toFixed(2)}</span>` +
+        `  H <span style="color:${tone}">${bar.high.toFixed(2)}</span>` +
+        `  L <span style="color:${tone}">${bar.low.toFixed(2)}</span>` +
+        `  C <span style="color:${tone}">${bar.close.toFixed(2)}</span>` +
+        `  <span style="color:${tone}">${change >= 0 ? '+' : ''}${pct.toFixed(2)}%</span>` +
+        (bar.volume ? `  <span style="color:#64748b">Vol ${(bar.volume / 1000).toFixed(0)}K</span>` : '');
+    };
+    renderLegend();
+    chart.subscribeCrosshairMove(param => {
+      const time = param?.time as string | undefined;
+      renderLegend(time ? barByTime.get(time) : undefined);
+    });
+
     // Handle Resize
     const handleResize = () => {
       if (chartContainerRef.current) {
@@ -130,5 +160,13 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
     };
   }, [data, cpr, showEMA, showCPR, showVolume, emaData]);
 
-  return <div ref={chartContainerRef} className="w-full h-[500px]" />;
+  return (
+    <div className="relative">
+      <div
+        ref={legendRef}
+        className="absolute top-2 left-3 z-10 text-[11px] font-mono whitespace-pre pointer-events-none"
+      />
+      <div ref={chartContainerRef} className="w-full h-[500px]" />
+    </div>
+  );
 };

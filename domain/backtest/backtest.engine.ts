@@ -52,6 +52,7 @@ export interface BacktestStats {
 
 export interface BacktestResult {
   equityCurve: { date: string; value: number }[];
+  buyHoldCurve: { date: string; value: number }[]; // same costs, same dates
   trades: BtTrade[];
   stats: BacktestStats;
 }
@@ -139,6 +140,11 @@ export const runBacktest = (
   const bhProceeds = bhUnits * bars[bars.length - 1].close * (1 - slippage);
   const bhFinal = bhProceeds - bhProceeds * commission;
 
+  const buyHoldCurve = bars.map((b, i) => ({
+    date: b.date,
+    value: parseFloat((i === 0 ? initialCapital : bhUnits * b.close).toFixed(2))
+  }));
+
   // Max drawdown on the equity curve
   let peak = -Infinity;
   let maxDd = 0;
@@ -153,6 +159,7 @@ export const runBacktest = (
 
   return {
     equityCurve,
+    buyHoldCurve,
     trades,
     stats: {
       totalReturnPct: parseFloat((((finalEquity - initialCapital) / initialCapital) * 100).toFixed(2)),

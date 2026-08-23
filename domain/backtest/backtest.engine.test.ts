@@ -79,6 +79,18 @@ describe('runBacktest — execution correctness', () => {
   it('returns null for too-short series', () => {
     expect(runBacktest([bar('2026-07-01', 100, 101)], buyAndHold())).toBeNull();
   });
+
+  it('buyHoldCurve spans every bar and ends consistent with the benchmark return', () => {
+    const bars = risingBars();
+    const result = runBacktest(bars, buyAndHold(), { commissionPct: 0.05, slippagePct: 0.05 })!;
+    expect(result.buyHoldCurve).toHaveLength(bars.length);
+    expect(result.buyHoldCurve[0].value).toBe(100000); // pre-entry: all cash
+    // Final curve value (marked at close, before exit costs) must sit at or
+    // just above the net buy-hold return, never below it.
+    const finalPct = ((result.buyHoldCurve[bars.length - 1].value - 100000) / 100000) * 100;
+    expect(finalPct).toBeGreaterThanOrEqual(result.stats.buyHoldReturnPct);
+    expect(finalPct - result.stats.buyHoldReturnPct).toBeLessThan(0.5);
+  });
 });
 
 describe('indicators', () => {
