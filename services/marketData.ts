@@ -6,6 +6,7 @@ import { getLiveQuote, getLiveQuotes, getLiveHistory } from './marketFeed';
 import { getLiveFundamentals } from './fundamentalsFeed';
 import { getLiveChainDetail } from './derivativesFeed';
 import { computeOiSummary, formatOi } from '../domain/derivatives/oiAnalytics.engine';
+import { patchLastBarWithQuote } from '../domain/screener/screener.engine';
 
 // Simulating API latency
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -89,11 +90,14 @@ export const fetchMarketIndices = async (): Promise<MarketIndex[]> => {
 
 export const fetchStockDetails = async (symbol: string): Promise<StockData> => {
   // Live path: real OHLCV history + quote from the market feed.
-  const [liveHistory, liveQuote] = await Promise.all([
+  let [liveHistory, liveQuote] = await Promise.all([
     getLiveHistory(symbol, 90),
     getLiveQuote(symbol)
   ]);
   if (liveHistory.length >= 2) {
+    // Inject the live quote into the forming last bar so the TA/conviction
+    // engines signal on the latest price, not a cache-staled close.
+    if (liveQuote) liveHistory = patchLastBarWithQuote(liveHistory, liveQuote.price);
     const latest = liveHistory[liveHistory.length - 1];
     const prev = liveHistory[liveHistory.length - 2];
     const price = liveQuote?.price ?? latest.close;

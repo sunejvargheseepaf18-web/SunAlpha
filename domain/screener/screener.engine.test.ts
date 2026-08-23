@@ -1,6 +1,6 @@
 
 import { describe, it, expect } from 'vitest';
-import { computeScreenerMetrics, matches, runScreens, ScreenerMetrics } from './screener.engine';
+import { computeScreenerMetrics, matches, runScreens, patchLastBarWithQuote, ScreenerMetrics } from './screener.engine';
 import { BtBar } from '../backtest/backtest.engine';
 
 const bar = (close: number, i: number, volume = 100000): BtBar => ({
@@ -40,6 +40,31 @@ describe('computeScreenerMetrics', () => {
 
   it('returns null with insufficient history', () => {
     expect(computeScreenerMetrics('X', trendBars(100, 0.5, 30))).toBeNull();
+  });
+});
+
+describe('patchLastBarWithQuote', () => {
+  it('replaces the forming close with the live price and widens high/low', () => {
+    const bars = trendBars(100, 0.2, 70);
+    const staleClose = bars[bars.length - 1].close;
+    const live = staleClose * 1.03; // live price above the stale bar's high
+    const patched = patchLastBarWithQuote(bars, live);
+    const last = patched[patched.length - 1];
+    expect(last.close).toBe(live);
+    expect(last.high).toBe(live); // extended to contain the live print
+    expect(patched).toHaveLength(bars.length);
+    // The stale array is untouched (pure)
+    expect(bars[bars.length - 1].close).toBe(staleClose);
+    // And the metrics actually SEE the live price
+    const m = computeScreenerMetrics('X', patched)!;
+    expect(m.price).toBe(live);
+  });
+
+  it('is a no-op for equal price, empty bars or garbage price', () => {
+    const bars = trendBars(100, 0.2, 70);
+    expect(patchLastBarWithQuote(bars, bars[bars.length - 1].close)).toBe(bars);
+    expect(patchLastBarWithQuote([], 100)).toEqual([]);
+    expect(patchLastBarWithQuote(bars, 0)).toBe(bars);
   });
 });
 

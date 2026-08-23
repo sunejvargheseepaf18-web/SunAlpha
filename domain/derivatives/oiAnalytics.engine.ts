@@ -113,6 +113,67 @@ export const computeOiSummary = (rows: OptionChainRow[]): OiSummary | null => {
   };
 };
 
+// --- OI-derived scan signals ---------------------------------------------------
+
+export interface OiScanHit {
+  type: 'OI_PCR_EXTREME' | 'OI_FRESH_WRITING' | 'OI_MAX_PAIN_MAGNET';
+  strength: number; // 0-100
+  description: string;
+  sentiment: 'BULLISH' | 'BEARISH';
+}
+
+const PCR_HIGH = 1.25;
+const PCR_LOW = 0.6;
+const clampStrength = (n: number): number => Math.max(0, Math.min(100, Math.round(n)));
+
+/**
+ * Turn an OI summary into scanner-grade signals — the same OI the option
+ * chain displays, feeding the screener instead of only a radar card:
+ * - OI_PCR_EXTREME: positioning stretched beyond the normal PCR band.
+ * - OI_FRESH_WRITING: today's net new writing is a meaningful share of the
+ *   book (put writers defending = bullish, call writers capping = bearish).
+ * - OI_MAX_PAIN_MAGNET: spot trades ≥1% away from the max-pain strike —
+ *   the OI-weighted level expiry tends to gravitate toward.
+ */
+export const oiScanHits = (summary: OiSummary, spot: number): OiScanHit[] => {
+  const hits: OiScanHit[] = [];
+
+  if (summary.pcr >= PCR_HIGH || summary.pcr <= PCR_LOW) {
+    const stretched = summary.pcr >= PCR_HIGH ? summary.pcr - PCR_HIGH : PCR_LOW - summary.pcr;
+    hits.push({
+      type: 'OI_PCR_EXTREME',
+      strength: clampStrength(60 + stretched * 80),
+      description: `PCR ${summary.pcr} — ${summary.pcr >= PCR_HIGH ? 'put-heavy positioning (support below)' : 'call-heavy positioning (supply above)'}.`,
+      sentiment: summary.pcr >= PCR_HIGH ? 'BULLISH' : 'BEARISH'
+    });
+  }
+
+  const book = Math.max(summary.totalCallOi, summary.totalPutOi);
+  const netWriting = summary.putOiChangeSum - summary.callOiChangeSum;
+  if (book > 0 && Math.abs(netWriting) >= book * 0.03) {
+    hits.push({
+      type: 'OI_FRESH_WRITING',
+      strength: clampStrength(55 + (Math.abs(netWriting) / book) * 400),
+      description: `${netWriting > 0 ? 'Put' : 'Call'} writers added ${formatOi(Math.abs(netWriting))} net OI today (${((Math.abs(netWriting) / book) * 100).toFixed(1)}% of the book).`,
+      sentiment: netWriting > 0 ? 'BULLISH' : 'BEARISH'
+    });
+  }
+
+  if (spot > 0 && summary.maxPainStrike > 0) {
+    const gapPct = ((summary.maxPainStrike - spot) / spot) * 100;
+    if (Math.abs(gapPct) >= 1) {
+      hits.push({
+        type: 'OI_MAX_PAIN_MAGNET',
+        strength: clampStrength(50 + Math.abs(gapPct) * 10),
+        description: `Spot ${spot.toFixed(0)} is ${Math.abs(gapPct).toFixed(1)}% ${gapPct > 0 ? 'below' : 'above'} max pain ${summary.maxPainStrike} — OI-weighted gravity points ${gapPct > 0 ? 'up' : 'down'} into expiry.`,
+        sentiment: gapPct > 0 ? 'BULLISH' : 'BEARISH'
+      });
+    }
+  }
+
+  return hits;
+};
+
 /** Human-readable lakh/crore contract counts for radar labels. */
 export const formatOi = (oi: number): string => {
   if (oi >= 1_00_00_000) return `${(oi / 1_00_00_000).toFixed(1)}Cr`;

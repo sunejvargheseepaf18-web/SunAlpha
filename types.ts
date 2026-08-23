@@ -216,7 +216,9 @@ export interface MarketRegime {
 export type ScanType =
   | 'BULLISH_MOMENTUM' | 'BEARISH_MOMENTUM' | 'VOLUME_SHOCKER' | 'NARROW_CPR' | 'OVERSOLD' | 'OVERBOUGHT'
   // Bar-pattern scans (Screeni-py style)
-  | 'BREAKOUT' | 'CONSOLIDATION' | 'VOLUME_DRYUP' | 'NR7' | 'INSIDE_BAR' | 'NEAR_52W_HIGH';
+  | 'BREAKOUT' | 'CONSOLIDATION' | 'VOLUME_DRYUP' | 'NR7' | 'INSIDE_BAR' | 'NEAR_52W_HIGH'
+  // OI-derived scans from the live NSE chain
+  | 'OI_PCR_EXTREME' | 'OI_FRESH_WRITING' | 'OI_MAX_PAIN_MAGNET';
 
 export interface ScannerResult {
   id: string;

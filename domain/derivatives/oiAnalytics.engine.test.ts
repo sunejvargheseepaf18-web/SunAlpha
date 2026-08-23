@@ -4,7 +4,9 @@ import {
   classifyBuildup,
   computeMaxPain,
   computeOiSummary,
-  formatOi
+  oiScanHits,
+  formatOi,
+  OiSummary
 } from './oiAnalytics.engine';
 import { OptionChainRow, OptionContract } from '../../types';
 
@@ -108,6 +110,72 @@ describe('computeOiSummary', () => {
   it('null on empty or zero-OI chains — no invented readings', () => {
     expect(computeOiSummary([])).toBeNull();
     expect(computeOiSummary([row(24500, 0, 0)])).toBeNull();
+  });
+});
+
+describe('oiScanHits', () => {
+  const base: OiSummary = {
+    totalCallOi: 5000000,
+    totalPutOi: 5000000,
+    pcr: 1.0,
+    pcrReading: 'NEUTRAL',
+    supportStrike: 24400,
+    supportOi: 2000000,
+    resistanceStrike: 24600,
+    resistanceOi: 2000000,
+    maxPainStrike: 24500,
+    callOiChangeSum: 0,
+    putOiChangeSum: 0,
+    changeReading: 'NEUTRAL'
+  };
+
+  it('a balanced book near max pain yields no OI signals', () => {
+    expect(oiScanHits(base, 24500)).toEqual([]);
+  });
+
+  it('fires PCR extremes on both sides with the right sentiment', () => {
+    const putHeavy = oiScanHits({ ...base, pcr: 1.4 }, 24500);
+    expect(putHeavy).toHaveLength(1);
+    expect(putHeavy[0].type).toBe('OI_PCR_EXTREME');
+    expect(putHeavy[0].sentiment).toBe('BULLISH');
+
+    const callHeavy = oiScanHits({ ...base, pcr: 0.5 }, 24500);
+    expect(callHeavy[0].sentiment).toBe('BEARISH');
+    // In-band PCR stays silent
+    expect(oiScanHits({ ...base, pcr: 1.1 }, 24500)).toEqual([]);
+  });
+
+  it('fresh writing needs a meaningful share of the book', () => {
+    // 200k net put writing on a 5M book = 4% -> fires bullish
+    const busy = oiScanHits({ ...base, putOiChangeSum: 250000, callOiChangeSum: 50000 }, 24500);
+    expect(busy).toHaveLength(1);
+    expect(busy[0].type).toBe('OI_FRESH_WRITING');
+    expect(busy[0].sentiment).toBe('BULLISH');
+    expect(busy[0].description).toContain('Put writers');
+    // 1% of book -> below the 3% materiality gate, silent
+    expect(oiScanHits({ ...base, putOiChangeSum: 50000 }, 24500)).toEqual([]);
+  });
+
+  it('max-pain magnet fires beyond a 1% gap, pointing toward max pain', () => {
+    const below = oiScanHits(base, 24000); // spot 2.1% below max pain
+    expect(below).toHaveLength(1);
+    expect(below[0].type).toBe('OI_MAX_PAIN_MAGNET');
+    expect(below[0].sentiment).toBe('BULLISH'); // gravity points up
+
+    const above = oiScanHits(base, 25000);
+    expect(above[0].sentiment).toBe('BEARISH');
+    // Within 1% -> silent (already covered by the balanced-book test)
+  });
+
+  it('strengths stay within 0-100', () => {
+    const extreme = oiScanHits(
+      { ...base, pcr: 3, putOiChangeSum: 5000000, maxPainStrike: 30000 },
+      24500
+    );
+    for (const hit of extreme) {
+      expect(hit.strength).toBeGreaterThanOrEqual(0);
+      expect(hit.strength).toBeLessThanOrEqual(100);
+    }
   });
 });
 

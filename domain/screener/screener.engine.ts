@@ -24,6 +24,27 @@ export interface ScreenerMetrics {
 
 const MIN_BARS = 60; // need enough history for SMA50 + RSI to mean anything
 
+/**
+ * Inject the LIVE quote into the forming last bar before computing signals:
+ * daily history can lag by cache TTLs, and a screen firing on a stale close
+ * is a signal on a price that no longer exists. Extends the bar's high/low
+ * if the live price has moved outside them. Pure — returns a new array.
+ */
+export const patchLastBarWithQuote = (bars: BtBar[], livePrice: number): BtBar[] => {
+  if (bars.length === 0 || livePrice <= 0) return bars;
+  const last = bars[bars.length - 1];
+  if (last.close === livePrice) return bars;
+  return [
+    ...bars.slice(0, -1),
+    {
+      ...last,
+      close: livePrice,
+      high: Math.max(last.high, livePrice),
+      low: Math.min(last.low, livePrice)
+    }
+  ];
+};
+
 export const computeScreenerMetrics = (symbol: string, bars: BtBar[]): ScreenerMetrics | null => {
   if (bars.length < MIN_BARS) return null;
   const last = bars.length - 1;
