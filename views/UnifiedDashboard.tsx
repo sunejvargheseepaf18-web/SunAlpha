@@ -9,6 +9,7 @@ import { getBrokerProfile } from '../services/brokerService';
 import { HoldingsPanel } from '../components/HoldingsPanel';
 import { TradeJournalPanel } from '../components/TradeJournalPanel';
 import { LearnPanel } from '../components/LearnPanel';
+import { GoalsPanel } from '../components/GoalsPanel';
 import { recordAdvices, gradeJournal } from '../services/adviceJournal';
 import { JournalScorecard } from '../domain/advice/journal.engine';
 import { HoldingAdvice, RedeploymentPlan } from '../domain/advice/advice.types';
@@ -209,7 +210,10 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
       {/* 4. Trading journal scorecard (paper sells auto-journal) */}
       <TradeJournalPanel />
 
-      {/* 5. Staged curriculum with inline quizzes */}
+      {/* 5. Goal planning against the live portfolio value */}
+      <GoalsPanel portfolioValue={portfolio.totalValue} />
+
+      {/* 6. Staged curriculum with inline quizzes */}
       <LearnPanel stage={userProfile?.stage ?? LifecycleStage.EXPLORER} />
     </div>
   );
