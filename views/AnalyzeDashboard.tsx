@@ -3,6 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { DonutChart, ComparisonLineChart } from '../components/Charts';
 import { calculatePortfolio, generateAIInsights, fetchPortfolioHistory } from '../services/portfolioEngine';
 import { buildPortfolioAnalytics } from '../services/portfolioAnalytics';
+import { optimizePortfolio, OptimizationResult } from '../services/optimizerService';
+import { OptimizerPanel } from '../components/OptimizerPanel';
 import { PerformanceMetrics } from '../domain/analytics/performance.engine';
 import { PerformanceStats } from '../components/PerformanceStats';
 import { calculateDrift } from '../services/rebalanceEngine';
@@ -99,6 +101,7 @@ export const AnalyzeDashboard: React.FC<AnalyzeDashboardProps> = ({ initialRebal
   const [capitalSnapshot, setCapitalSnapshot] = useState<CapitalSnapshot | null>(null);
   const [history, setHistory] = useState<PortfolioHistoryPoint[]>([]);
   const [perfMetrics, setPerfMetrics] = useState<PerformanceMetrics | null>(null);
+  const [optimization, setOptimization] = useState<OptimizationResult | null>(null);
   const [insights, setInsights] = useState<Insight[]>([]);
   const [rebalanceSim, setRebalanceSim] = useState<RebalanceSimulation | null>(null);
 
@@ -122,6 +125,9 @@ export const AnalyzeDashboard: React.FC<AnalyzeDashboardProps> = ({ initialRebal
               setPerfMetrics(analytics.metrics);
           }
       });
+
+      // Data-driven allocation proposals (min-vol / max-Sharpe / risk parity)
+      optimizePortfolio(p.positions).then(setOptimization);
       setReports(savedReports);
       
       const sim = calculateDrift(p.positions, 'AGGRESSIVE'); 
@@ -320,6 +326,8 @@ export const AnalyzeDashboard: React.FC<AnalyzeDashboardProps> = ({ initialRebal
                     </div>
                 )}
                 </div>
+
+                {optimization && <OptimizerPanel result={optimization} />}
 
                 {/* AI Insights Panel */}
                 <div className="bg-gradient-to-b from-blue-50 to-white p-6 rounded-2xl shadow-sm border border-blue-100">

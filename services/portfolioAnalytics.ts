@@ -19,9 +19,13 @@ export interface PortfolioAnalytics {
   benchmarkName: string;
 }
 
-type Series = Map<string, number>; // date -> price/NAV
+export type Series = Map<string, number>; // date -> price/NAV
 
-const seriesFor = async (pos: PortfolioPosition, days: number): Promise<Series | null> => {
+/** Daily price/NAV history for one holding from the live feeds. */
+export const getHoldingPriceSeries = async (
+  pos: PortfolioPosition,
+  days: number
+): Promise<Series | null> => {
   try {
     if (pos.assetType === 'STOCK') {
       const bars = await getLiveHistory(pos.symbol, days);
@@ -59,7 +63,7 @@ export const buildPortfolioAnalytics = async (
   if (priced.length === 0) return null;
 
   const [seriesList, benchmarkBars] = await Promise.all([
-    Promise.all(priced.map(p => seriesFor(p, days))),
+    Promise.all(priced.map(p => getHoldingPriceSeries(p, days))),
     getLiveHistory('NIFTY 50', days)
   ]);
 
