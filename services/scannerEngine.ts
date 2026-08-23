@@ -1,5 +1,6 @@
 
 import { ScannerResult, ScanType } from '../types';
+import { runLiveScreens } from './screenerService';
 
 const MOCK_SCANS: ScannerResult[] = [
     {
@@ -55,11 +56,17 @@ const MOCK_SCANS: ScannerResult[] = [
 ];
 
 export const runMarketScans = async (): Promise<ScannerResult[]> => {
-    // In a real app, this would query a Python backend or database
-    await new Promise(r => setTimeout(r, 600)); 
+    // Live path: real screens (RSI/SMA/52w/volume criteria) over feed
+    // history for the NSE universe + holdings. Simulated fallback offline.
+    const live = await runLiveScreens();
+    if (live && live.length > 0) return live;
+
+    await new Promise(r => setTimeout(r, 600));
     return MOCK_SCANS;
 };
 
 export const getScansForSymbol = async (symbol: string): Promise<ScannerResult[]> => {
+    const live = await runLiveScreens();
+    if (live && live.length > 0) return live.filter(s => s.symbol === symbol);
     return MOCK_SCANS.filter(s => s.symbol === symbol);
 };
