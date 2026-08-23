@@ -9,12 +9,12 @@ let MOCK_WATCHLISTS: Watchlist[] = [
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const getWatchlists = async (): Promise<Watchlist[]> => {
-  await delay(300);
+  await delay(30);
   return [...MOCK_WATCHLISTS];
 };
 
 export const createWatchlist = async (name: string): Promise<Watchlist[]> => {
-  await delay(200);
+  await delay(20);
   const newId = (MOCK_WATCHLISTS.length + 1).toString();
   const newList: Watchlist = { id: newId, name, symbols: [] };
   MOCK_WATCHLISTS = [...MOCK_WATCHLISTS, newList];
@@ -22,13 +22,13 @@ export const createWatchlist = async (name: string): Promise<Watchlist[]> => {
 };
 
 export const deleteWatchlist = async (id: string): Promise<Watchlist[]> => {
-  await delay(200);
+  await delay(20);
   MOCK_WATCHLISTS = MOCK_WATCHLISTS.filter(w => w.id !== id);
   return MOCK_WATCHLISTS;
 };
 
 export const addSymbolToWatchlist = async (id: string, symbol: string): Promise<Watchlist[]> => {
-  await delay(200);
+  await delay(20);
   const cleanSymbol = symbol.toUpperCase().trim();
   MOCK_WATCHLISTS = MOCK_WATCHLISTS.map(w => {
     if (w.id === id && !w.symbols.includes(cleanSymbol)) {
@@ -40,7 +40,7 @@ export const addSymbolToWatchlist = async (id: string, symbol: string): Promise<
 };
 
 export const removeSymbolFromWatchlist = async (id: string, symbol: string): Promise<Watchlist[]> => {
-  await delay(200);
+  await delay(20);
   MOCK_WATCHLISTS = MOCK_WATCHLISTS.map(w => {
     if (w.id === id) {
       return { ...w, symbols: w.symbols.filter(s => s !== symbol) };

@@ -160,7 +160,6 @@ export const calculatePortfolio = async (mode: ExecutionMode = 'LIVE'): Promise<
   positions: PortfolioPosition[];
 }> => {
   // Simulate calculation delay
-  await new Promise(r => setTimeout(r, 400));
 
   let positions: PortfolioPosition[] = [];
 
@@ -217,7 +216,6 @@ export const calculatePortfolio = async (mode: ExecutionMode = 'LIVE'): Promise<
 };
 
 export const fetchPortfolioHistory = async (months: number = 6): Promise<PortfolioHistoryPoint[]> => {
-  await new Promise(r => setTimeout(r, 400));
   
   const history: PortfolioHistoryPoint[] = [];
   const now = new Date();

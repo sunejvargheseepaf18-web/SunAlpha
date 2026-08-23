@@ -3,7 +3,6 @@ import { EXPLORE_DATA } from '../constants';
 
 export const fetchExploreContent = async (mode: AppMode): Promise<ExploreItem[]> => {
   // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 500));
   
   // Filter content based on relevance to the current mode
   // Some content might be relevant to multiple modes

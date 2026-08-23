@@ -119,7 +119,6 @@ export const fetchStockDetails = async (symbol: string): Promise<StockData> => {
   }
 
   // Fallback: simulated data (offline / unknown symbol)
-  await delay(800);
 
   // Seedable-ish random based on symbol length
   const basePrice = symbol.length * 50 + 100;
@@ -193,7 +192,6 @@ export const fetchMutualFundDetails = async (symbol: string): Promise<MutualFund
         // Feed unreachable — use the simulated fallback below
     }
 
-    await delay(600);
 
     // Infer category from name or mock it
     const isSmallCap = symbol.includes('SMALL');
@@ -297,8 +295,11 @@ export const fetchOptionRadar = async (): Promise<OptionRadarItem[]> => {
     // walls, max pain, fresh writing) — numbers a user can verify against
     // the chain itself. Static fallback only when NSE is unreachable.
     const items: OptionRadarItem[] = [];
-    for (const symbol of ['NIFTY', 'BANKNIFTY']) {
-        const detail = await getLiveChainDetail(symbol);
+    const radarSymbols = ['NIFTY', 'BANKNIFTY'];
+    const details = await Promise.all(radarSymbols.map(s => getLiveChainDetail(s)));
+    for (let i = 0; i < radarSymbols.length; i++) {
+        const symbol = radarSymbols[i];
+        const detail = details[i];
         if (!detail) continue;
         // Full-chain analytics: PCR/walls/max pain over EVERY strike of the
         // expiry, matching NSE's own whole-chain numbers.

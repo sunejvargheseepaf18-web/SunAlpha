@@ -95,7 +95,7 @@ const generateFullHistory = (): CapitalGainEntry[] => {
 };
 
 export const calculateTaxReport = async (positions: PortfolioPosition[], period: PeriodContext): Promise<TaxSummary> => {
-  await delay(600); // Simulate processing
+  // (artificial processing delay removed)
 
   const fullHistory = generateFullHistory();
   

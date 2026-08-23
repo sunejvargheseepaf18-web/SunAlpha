@@ -36,7 +36,7 @@ let ALERTS: PriceAlert[] = load();
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const getAlerts = async (symbol?: string): Promise<PriceAlert[]> => {
-  await delay(50);
+  // no artificial latency
   return symbol ? ALERTS.filter(a => a.symbol === symbol) : [...ALERTS];
 };
 

@@ -102,7 +102,7 @@ const generatePortfolioReport = async (): Promise<AnalysisReport> => {
 // --- Public API ---
 
 export const runReport = async (type: ReportType): Promise<AnalysisReport> => {
-    await delay(1000); // Simulate processing
+    // (artificial processing delay removed)
     
     let report: AnalysisReport;
     

@@ -96,8 +96,11 @@ export const runLiveScreens = async (): Promise<ScannerResult[] | null> => {
   // option chain shows now feeds the scanner (PCR extremes, fresh writing,
   // max-pain gap) instead of living only on a radar card.
   const oiResults: ScannerResult[] = [];
-  for (const indexSymbol of ['NIFTY', 'BANKNIFTY']) {
-    const detail = await getLiveChainDetail(indexSymbol);
+  const oiSymbols = ['NIFTY', 'BANKNIFTY'];
+  const chainDetails = await Promise.all(oiSymbols.map(s => getLiveChainDetail(s)));
+  for (let i = 0; i < oiSymbols.length; i++) {
+    const indexSymbol = oiSymbols[i];
+    const detail = chainDetails[i];
     if (!detail) continue;
     // Whole-chain OI, not the ATM display window — walls beyond 5 strikes count.
     const summary = computeOiSummary(detail.fullRows);

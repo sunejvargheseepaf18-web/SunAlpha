@@ -50,6 +50,5 @@ const MOCK_BASKETS: Basket[] = [
 ];
 
 export const fetchBaskets = async (): Promise<Basket[]> => {
-    await new Promise(r => setTimeout(r, 500));
     return MOCK_BASKETS;
 };

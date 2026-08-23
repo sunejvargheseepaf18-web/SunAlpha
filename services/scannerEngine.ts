@@ -61,7 +61,6 @@ export const runMarketScans = async (): Promise<ScannerResult[]> => {
     const live = await runLiveScreens();
     if (live && live.length > 0) return live;
 
-    await new Promise(r => setTimeout(r, 600));
     return MOCK_SCANS;
 };
 
