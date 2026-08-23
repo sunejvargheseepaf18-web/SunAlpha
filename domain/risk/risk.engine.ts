@@ -7,7 +7,34 @@ import { RiskValidationInput, RiskValidationResult } from "./risk.types";
  * Acts as the final gate before execution.
  */
 export function validateTradeRisk(input: RiskValidationInput): RiskValidationResult {
-  const { actions, constraints, portfolioValue } = input;
+  const { actions, constraints, portfolioValue, portfolioState } = input;
+
+  // 0. Circuit breaker — when the portfolio is already past its loss
+  // thresholds, refuse risk-increasing (BUY) actions. De-risking is allowed.
+  const hasBuys = actions.some(a => a.type === 'BUY');
+  if (hasBuys && portfolioState) {
+    const { drawdownFromPeakPct, dailyPnlPct } = portfolioState;
+    if (
+      constraints.haltBuysOnDrawdownPct !== undefined &&
+      drawdownFromPeakPct !== undefined &&
+      drawdownFromPeakPct <= -Math.abs(constraints.haltBuysOnDrawdownPct)
+    ) {
+      return {
+        approved: false,
+        reason: `Circuit breaker: portfolio is ${drawdownFromPeakPct.toFixed(1)}% off its peak (halt threshold ${-Math.abs(constraints.haltBuysOnDrawdownPct)}%). New buys are halted; only de-risking trades are allowed.`
+      };
+    }
+    if (
+      constraints.haltBuysOnDailyLossPct !== undefined &&
+      dailyPnlPct !== undefined &&
+      dailyPnlPct <= -Math.abs(constraints.haltBuysOnDailyLossPct)
+    ) {
+      return {
+        approved: false,
+        reason: `Circuit breaker: portfolio is down ${dailyPnlPct.toFixed(1)}% today (halt threshold ${-Math.abs(constraints.haltBuysOnDailyLossPct)}%). New buys are halted; only de-risking trades are allowed.`
+      };
+    }
+  }
 
   let totalTurnover = 0;
 

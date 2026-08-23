@@ -17,6 +17,7 @@ export interface PerformanceMetrics {
   maxDrawdownPct: number; // <= 0
   beta: number | null; // null without a usable benchmark
   dailyVar95Pct: number; // historical 5th-percentile daily return, <= 0
+  dailyCvar95Pct: number; // expected shortfall: mean of returns beyond VaR, <= 0
 }
 
 export interface PerformanceOptions {
@@ -87,7 +88,12 @@ export const computePerformance = (
 
   // Historical VaR(95): the 5th-percentile daily return, capped at 0.
   const sorted = [...returns].sort((a, b) => a - b);
-  const var95 = Math.min(0, sorted[Math.floor(0.05 * (sorted.length - 1))]);
+  const varIdx = Math.floor(0.05 * (sorted.length - 1));
+  const var95 = Math.min(0, sorted[varIdx]);
+  // CVaR(95) / expected shortfall: the AVERAGE of the tail beyond VaR — the
+  // coherent risk measure (answers "how bad is bad", not just "how often").
+  const tail = sorted.slice(0, varIdx + 1);
+  const cvar95 = Math.min(0, tail.reduce((s, r) => s + r, 0) / tail.length);
 
   // Beta vs benchmark on aligned daily returns.
   let beta: number | null = null;
@@ -115,6 +121,7 @@ export const computePerformance = (
     sortino: parseFloat(sortino.toFixed(2)),
     maxDrawdownPct: computeMaxDrawdownPct(values),
     beta,
-    dailyVar95Pct: parseFloat((var95 * 100).toFixed(2))
+    dailyVar95Pct: parseFloat((var95 * 100).toFixed(2)),
+    dailyCvar95Pct: parseFloat((cvar95 * 100).toFixed(2))
   };
 };

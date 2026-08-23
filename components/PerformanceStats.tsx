@@ -57,6 +57,7 @@ export const PerformanceStats: React.FC<{ metrics: PerformanceMetrics; benchmark
       <Tile label="Max Drawdown" value={`${metrics.maxDrawdownPct.toFixed(1)}%`} tone="neg" />
       <Tile label={`Beta vs ${benchmarkName}`} value={metrics.beta !== null ? metrics.beta.toFixed(2) : '—'} />
       <Tile label="Daily VaR (95%)" value={`${metrics.dailyVar95Pct.toFixed(2)}%`} tone="neg" />
+      <Tile label="Daily CVaR (95%)" value={`${metrics.dailyCvar95Pct.toFixed(2)}%`} tone="neg" />
       <Tile
         label="Total Return"
         value={`${metrics.totalReturnPct >= 0 ? '+' : ''}${metrics.totalReturnPct.toFixed(1)}%`}

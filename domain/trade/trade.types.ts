@@ -1,6 +1,6 @@
 
 import { Allocation, Holding } from "../rebalance/rebalance.types";
-import { RiskConstraints } from "../risk/risk.types";
+import { PortfolioRiskState, RiskConstraints } from "../risk/risk.types";
 
 export type TradeProposal = {
   id: string;
@@ -8,6 +8,8 @@ export type TradeProposal = {
   totalValue: number;
   targetAllocations: Allocation[];
   constraints: RiskConstraints;
+  // Live loss state for the risk circuit breaker (optional)
+  portfolioState?: PortfolioRiskState;
 };
 
 export type TradeResult = {

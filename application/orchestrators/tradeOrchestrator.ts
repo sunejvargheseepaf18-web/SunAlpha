@@ -47,7 +47,8 @@ export class TradeOrchestrator {
         const riskResult = validateTradeRisk({
             actions,
             constraints: proposal.constraints,
-            portfolioValue: proposal.totalValue
+            portfolioValue: proposal.totalValue,
+            portfolioState: proposal.portfolioState
         });
 
         if (!riskResult.approved) {
