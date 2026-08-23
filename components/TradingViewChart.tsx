@@ -9,6 +9,8 @@ interface TradingViewChartProps {
   showCPR?: boolean;
   showVolume?: boolean;
   emaData?: { time: string; value: number }[];
+  smaData?: { time: string; value: number }[]; // SMA50 trend anchor
+  bollingerData?: { time: string; upper: number; mid: number; lower: number }[];
 }
 
 export const TradingViewChart: React.FC<TradingViewChartProps> = ({
@@ -17,7 +19,9 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
   showEMA = true,
   showCPR = true,
   showVolume = true,
-  emaData
+  emaData,
+  smaData,
+  bollingerData
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const legendRef = useRef<HTMLDivElement>(null);
@@ -93,6 +97,28 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
         title: 'EMA 20'
       });
       emaSeries.setData(emaData);
+    }
+
+    // 4b. SMA 50 trend anchor (auto-picked in trending regimes)
+    if (smaData && smaData.length > 0) {
+      const smaSeries = chart.addLineSeries({
+        color: '#38bdf8', // Sky 400
+        lineWidth: 2,
+        lineStyle: 2, // dashed
+        title: 'SMA 50'
+      });
+      smaSeries.setData(smaData);
+    }
+
+    // 4c. Bollinger bands (auto-picked in ranges and squeezes)
+    if (bollingerData && bollingerData.length > 0) {
+      const bandOpts = { color: '#64748b', lineWidth: 1 as const, lineStyle: 1, priceLineVisible: false, crosshairMarkerVisible: false };
+      const upper = chart.addLineSeries({ ...bandOpts, title: 'BB Upper' });
+      const lower = chart.addLineSeries({ ...bandOpts, title: 'BB Lower' });
+      const mid = chart.addLineSeries({ ...bandOpts, color: '#475569', lineStyle: 2, title: 'BB Mid' });
+      upper.setData(bollingerData.map(b => ({ time: b.time, value: b.upper })));
+      lower.setData(bollingerData.map(b => ({ time: b.time, value: b.lower })));
+      mid.setData(bollingerData.map(b => ({ time: b.time, value: b.mid })));
     }
 
     // 5. Add CPR Levels (Pivot, TC, BC)

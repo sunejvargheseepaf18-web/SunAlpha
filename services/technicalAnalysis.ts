@@ -41,6 +41,35 @@ export const calculateEMASeries = (data: {date: string, close: number}[], period
   return series;
 };
 
+/** Rolling SMA series for chart overlays (starts once `period` bars exist). */
+export const calculateSMASeries = (data: { date: string; close: number }[], period: number) => {
+  const series: { time: string; value: number }[] = [];
+  let sum = 0;
+  for (let i = 0; i < data.length; i++) {
+    sum += data[i].close;
+    if (i >= period) sum -= data[i - period].close;
+    if (i >= period - 1) series.push({ time: data[i].date, value: sum / period });
+  }
+  return series;
+};
+
+/** Rolling Bollinger series (20, 2σ by default) for chart overlays. */
+export const calculateBollingerSeries = (
+  data: { date: string; close: number }[],
+  period = 20,
+  stdDevs = 2
+) => {
+  const series: { time: string; upper: number; mid: number; lower: number }[] = [];
+  for (let i = period - 1; i < data.length; i++) {
+    const window = data.slice(i - period + 1, i + 1).map(d => d.close);
+    const mid = window.reduce((s, c) => s + c, 0) / period;
+    const variance = window.reduce((s, c) => s + (c - mid) * (c - mid), 0) / period;
+    const dev = Math.sqrt(variance) * stdDevs;
+    series.push({ time: data[i].date, upper: mid + dev, mid, lower: mid - dev });
+  }
+  return series;
+};
+
 // --- CPR (KGS / Pivot Boss) — delegates to the pure, tested engine ---
 const getCPR = (stock: StockData): CPRLevels | null => {
   const bundle = computeCprFromBars(

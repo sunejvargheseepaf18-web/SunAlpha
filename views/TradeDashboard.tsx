@@ -1,7 +1,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { TradingViewChart } from '../components/TradingViewChart';
-import { calculateEMASeries } from '../services/technicalAnalysis';
+import { calculateEMASeries, calculateSMASeries, calculateBollingerSeries } from '../services/technicalAnalysis';
+import { pickOverlays, OverlayPick } from '../domain/indicators/autoOverlay.engine';
 import { getBrokerProfile } from '../services/brokerService';
 import { fetchOptionChainView, OptionChainView } from '../services/foAnalytics';
 import { getAssetIntelligence } from '../services/orchestrator';
@@ -36,6 +37,34 @@ export const TradeDashboard = () => {
   const [showEMA, setShowEMA] = useState(true);
   const [showCPR, setShowCPR] = useState(true);
   const [showVolume, setShowVolume] = useState(true);
+  const [showSMA50, setShowSMA50] = useState(false);
+  const [showBB, setShowBB] = useState(false);
+
+  // Auto indicator selection: the regime decides which overlays earn their
+  // place (trend -> MAs, range -> levels+bands, squeeze -> bands). Touching
+  // any manual toggle hands control back to the user.
+  const [autoOverlays, setAutoOverlays] = useState(true);
+  const [overlayPick, setOverlayPick] = useState<OverlayPick | null>(null);
+
+  useEffect(() => {
+    if (!autoOverlays || !intelligence?.regime) return;
+    const pick = pickOverlays({
+      trend: intelligence.regime.trend,
+      volatility: intelligence.regime.volatility,
+      cprWidth: intelligence.technical?.cpr?.width
+    });
+    setOverlayPick(pick);
+    setShowEMA(pick.ema20);
+    setShowSMA50(pick.sma50);
+    setShowBB(pick.bollinger);
+    setShowCPR(pick.cpr);
+    setShowVolume(pick.volume);
+  }, [autoOverlays, intelligence]);
+
+  const manualToggle = (setter: React.Dispatch<React.SetStateAction<boolean>>) => () => {
+    setAutoOverlays(false);
+    setter(v => !v);
+  };
 
   // Chart timeframe: intraday (5m/15m bars from the live feed) or daily.
   const [timeframe, setTimeframe] = useState<'1D' | '1W' | '3M'>('3M');
@@ -190,16 +219,35 @@ export const TradeDashboard = () => {
                             ))}
                         </div>
                         <button
-                            onClick={() => setShowCPR(!showCPR)}
+                            onClick={() => setAutoOverlays(a => !a)}
+                            className={`px-2 py-1 text-[10px] font-bold rounded border ${autoOverlays ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'text-gray-500 bg-white border-gray-200'}`}
+                            title={autoOverlays && overlayPick ? overlayPick.reasons.join('\n') : 'Let the market regime pick the indicators'}
+                        >
+                            ✨ AUTO
+                        </button>
+                        <button
+                            onClick={manualToggle(setShowCPR)}
                             className={`px-2 py-1 text-[10px] font-bold rounded border ${showCPR ? 'bg-purple-100 text-purple-700 border-purple-200' : 'text-gray-500 bg-white border-gray-200'}`}
                         >
                             <Layers size={10} className="mr-1 inline"/> CPR
                         </button>
-                        <button 
-                            onClick={() => setShowEMA(!showEMA)}
+                        <button
+                            onClick={manualToggle(setShowEMA)}
                             className={`px-2 py-1 text-[10px] font-bold rounded border ${showEMA ? 'bg-orange-100 text-orange-700 border-orange-200' : 'text-gray-500 bg-white border-gray-200'}`}
                         >
                             <Activity size={10} className="mr-1 inline"/> EMA
+                        </button>
+                        <button
+                            onClick={manualToggle(setShowSMA50)}
+                            className={`px-2 py-1 text-[10px] font-bold rounded border ${showSMA50 ? 'bg-sky-100 text-sky-700 border-sky-200' : 'text-gray-500 bg-white border-gray-200'}`}
+                        >
+                            SMA50
+                        </button>
+                        <button
+                            onClick={manualToggle(setShowBB)}
+                            className={`px-2 py-1 text-[10px] font-bold rounded border ${showBB ? 'bg-slate-200 text-slate-700 border-slate-300' : 'text-gray-500 bg-white border-gray-200'}`}
+                        >
+                            BB
                         </button>
                       </div>
                       <div className="flex items-center text-xs text-gray-400">
@@ -216,14 +264,29 @@ export const TradeDashboard = () => {
                           </div>
                        ) : (
                           <TradingViewChart
-                             key={`${timeframe}-${intradayBars.length}`}
+                             key={`${timeframe}-${intradayBars.length}-${showSMA50}-${showBB}`}
                              data={timeframe === '3M' ? intelligence.stockData.history : intradayBars}
                              cpr={intelligence.technical.cpr}
                              showCPR={showCPR && timeframe === '3M'}
                              showEMA={showEMA && timeframe === '3M'}
                              showVolume={showVolume}
                              emaData={emaData}
+                             smaData={
+                                showSMA50 && timeframe === '3M'
+                                  ? calculateSMASeries(intelligence.stockData.history, 50)
+                                  : undefined
+                             }
+                             bollingerData={
+                                showBB && timeframe === '3M'
+                                  ? calculateBollingerSeries(intelligence.stockData.history)
+                                  : undefined
+                             }
                           />
+                       )}
+                       {autoOverlays && overlayPick && timeframe === '3M' && (
+                          <div className="absolute bottom-1 left-2 right-2 text-[10px] text-slate-400 bg-slate-900/80 rounded px-2 py-1 pointer-events-none">
+                             ✨ {overlayPick.reasons[0]}
+                          </div>
                        )}
                   </div>
               </div>
