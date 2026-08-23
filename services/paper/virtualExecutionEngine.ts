@@ -1,6 +1,7 @@
 
 import { TradeIntent, TradeOrder } from '../../types';
 import { getPaperCash, updatePaperCash, updatePaperHolding, logPaperOrder, getPaperHoldings } from './paperStore';
+import { recordClosedTrade } from '../tradeJournalService';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -37,6 +38,24 @@ export const executeVirtualTrade = async (intent: TradeIntent): Promise<TradeOrd
         updatePaperHolding(symbol, quantity, executionPrice, isDerivative ? 'DERIVATIVE' : 'STOCK');
     } else {
         updatePaperCash(totalValue - charges);
+
+        // Auto-journal the closed (part of the) position at its average cost.
+        // The paper store keeps no entry date, so holding time starts today —
+        // tags (setup/mistakes) can be added later from the journal panel.
+        const avgPrice = holdings[symbol]?.avgPrice ?? executionPrice;
+        const today = new Date().toISOString().split('T')[0];
+        recordClosedTrade({
+            id: `PAPER-${symbol}-${Date.now()}`,
+            symbol,
+            side: 'LONG',
+            quantity,
+            entryDate: today,
+            entryPrice: avgPrice,
+            exitDate: today,
+            exitPrice: executionPrice,
+            fees: charges
+        });
+
         updatePaperHolding(symbol, -quantity, executionPrice, isDerivative ? 'DERIVATIVE' : 'STOCK');
     }
 

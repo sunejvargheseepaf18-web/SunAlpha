@@ -7,6 +7,7 @@ import { calculatePortfolio, getHoldingAdvices, getRedeploymentPlan } from '../s
 import { calculateCapitalSnapshot } from '../services/capitalEngine';
 import { getBrokerProfile } from '../services/brokerService';
 import { HoldingsPanel } from '../components/HoldingsPanel';
+import { TradeJournalPanel } from '../components/TradeJournalPanel';
 import { recordAdvices, gradeJournal } from '../services/adviceJournal';
 import { JournalScorecard } from '../domain/advice/journal.engine';
 import { HoldingAdvice, RedeploymentPlan } from '../domain/advice/advice.types';
@@ -203,6 +204,9 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
         scorecard={scorecard}
         onNavigateToAsset={onNavigateToAsset}
       />
+
+      {/* 4. Trading journal scorecard (paper sells auto-journal) */}
+      <TradeJournalPanel />
     </div>
   );
 };
