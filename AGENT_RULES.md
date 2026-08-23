@@ -99,6 +99,17 @@ Expensive tokens plan. Cheap tokens type.
 - Scorecards may be digested into future AI briefs so the system learns
   from its own hit rate — but grading itself never involves a model
 
+### Reflection Memory (Lessons)
+- Lessons are extracted from the graded journal by pure aggregation
+  (`domain/advice/lessons.engine.ts`) — per symbol+action and overall,
+  minimum 2 samples, bounded count — and served via
+  `services/lessonMemory.ts`
+- Lessons enter debates as a labeled, deterministic
+  "PAST TRACK RECORD" input to researchers and judge; models may weigh
+  it but never generate or alter outcome numbers
+- No lessons yet (fresh journal) means no track-record line — never a
+  fabricated one
+
 ---
 
 ## 🧪 Testing Requirements

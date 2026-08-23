@@ -48,18 +48,25 @@ const RESEARCH_CRITERIA = [
 /**
  * Run one bull-vs-bear debate for a symbol over pre-assembled context
  * (technical scores, fundamentals, regime, position info — anything).
+ * `lessons` is the deterministic track record of past advice on this symbol
+ * (from lessonMemory) — the reflection loop: researchers and judge see how
+ * earlier calls actually played out, but never invent outcomes themselves.
  * Returns null when the AI is offline or any stage fails: callers fall back
  * to the deterministic conviction verdict, never to a guessed signal.
  */
 export const runBullBearDebate = async (
   symbol: string,
-  context: Record<string, unknown>
+  context: Record<string, unknown>,
+  lessons = ''
 ): Promise<DebateVerdict | null> => {
   try {
     // Digest once; both researchers argue from identical evidence.
     const digested = Object.fromEntries(
       Object.entries(context).map(([k, v]) => [k, digest(v, 700)])
     );
+    if (lessons) {
+      digested.pastTrackRecord = digest(lessons, 500);
+    }
 
     const [bull, bear] = await Promise.all([
       runWorkerBrief<DebateCase>(
@@ -85,6 +92,7 @@ export const runBullBearDebate = async (
     if (!bull.success || !bear.success || !bull.data || !bear.data) return null;
 
     // The judge reads the two one-page cases only — never the raw context.
+    // The deterministic track record is the one extra labeled input allowed.
     const judgePrompt = [
       `ROLE: Debate Judge / Head of Research`,
       `TASK: Weigh the bull and bear cases for ${symbol} and issue one signal.`,
@@ -92,10 +100,12 @@ export const runBullBearDebate = async (
       `1. Judge only the arguments below; do not introduce new facts.`,
       `2. Discard any point that is not evidence-backed.`,
       `3. Confidence reflects how one-sided the surviving evidence is (50 = balanced).`,
-      `4. This signal is advisory input to a portfolio advice engine — it does not execute trades.`,
+      `4. Weigh the past track record: repeat a call that has kept working; be skeptical of one that hasn't.`,
+      `5. This signal is advisory input to a portfolio advice engine — it does not execute trades.`,
       `BULL CASE: ${digest(bull.data, 900)}`,
-      `BEAR CASE: ${digest(bear.data, 900)}`
-    ].join('\n');
+      `BEAR CASE: ${digest(bear.data, 900)}`,
+      lessons ? `PAST TRACK RECORD (deterministic, from graded advice journal):\n${lessons}` : ''
+    ].filter(Boolean).join('\n');
 
     const verdict = await generateJSON<DebateVerdict>(judgePrompt, verdictSchema, 'PLANNER');
     if (!verdict.success || !verdict.data) return null;
