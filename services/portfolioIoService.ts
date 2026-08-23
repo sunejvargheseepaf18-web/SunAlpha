@@ -78,6 +78,57 @@ export const importHoldingsCsv = (text: string): ImportResult & { applied: boole
   return { ...result, applied };
 };
 
+const persist = (holdings: ImportedHolding[]): void => {
+  cached = holdings;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(holdings));
+  } catch {
+    // storage unavailable — the change still applies for this session
+  }
+};
+
+// Editable base: the imported set when present, else a copy of whatever the
+// app is currently showing (sample book) — so a manual add/remove keeps the
+// rest of the visible portfolio instead of wiping it.
+const editableBase = (): ImportedHolding[] =>
+  (load() ?? getActiveHoldingsData()).map(h => ({
+    symbol: h.symbol,
+    name: h.name,
+    assetType: h.assetType,
+    qty: h.qty,
+    avg: h.avg,
+    buyDate: h.buyDate
+  }));
+
+/**
+ * Add one holding manually. When the symbol already exists and
+ * `mergeAsTrade` is true (default), the entry is treated as an ADDITIONAL
+ * BUY: quantities add and the average cost becomes the weighted average —
+ * exactly what executing the trade would do. The earlier buy date is kept
+ * (conservative for tax terms). With mergeAsTrade false the row is
+ * replaced outright.
+ */
+export const addHolding = (holding: ImportedHolding, mergeAsTrade = true): void => {
+  const base = editableBase();
+  const idx = base.findIndex(h => h.symbol === holding.symbol);
+  if (idx === -1) {
+    base.push(holding);
+  } else if (mergeAsTrade) {
+    const existing = base[idx];
+    const qty = parseFloat((existing.qty + holding.qty).toFixed(4));
+    const avg = parseFloat(((existing.qty * existing.avg + holding.qty * holding.avg) / qty).toFixed(4));
+    base[idx] = { ...existing, qty, avg };
+  } else {
+    base[idx] = holding;
+  }
+  persist(base);
+};
+
+/** Remove one holding (recoverable via Revert, which restores the sample book). */
+export const removeHolding = (symbol: string): void => {
+  persist(editableBase().filter(h => h.symbol !== symbol));
+};
+
 /** Back to the bundled sample book. */
 export const clearImportedHoldings = (): void => {
   cached = null;

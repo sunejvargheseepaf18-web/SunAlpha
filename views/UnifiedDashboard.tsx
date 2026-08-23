@@ -36,6 +36,7 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
   const [redeployment, setRedeployment] = useState<RedeploymentPlan | null>(null);
   const [scorecard, setScorecard] = useState<JournalScorecard | null>(null);
   const [loading, setLoading] = useState(true);
+  const [holdingsVersion, setHoldingsVersion] = useState(0);
 
   useEffect(() => {
     const init = async () => {
@@ -69,7 +70,7 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
       setLoading(false);
     };
     init();
-  }, [executionMode]); // Re-run when mode changes
+  }, [executionMode, holdingsVersion]); // Re-run on mode or holdings change
 
   if (loading) return <div className="p-8 text-emerald-600 animate-pulse">Loading {executionMode === 'PAPER' ? 'Simulation' : 'Portfolio'}...</div>;
 
@@ -205,6 +206,7 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
         redeployment={redeployment}
         scorecard={scorecard}
         onNavigateToAsset={onNavigateToAsset}
+        onHoldingsChanged={() => setHoldingsVersion(v => v + 1)}
       />
 
       {/* 4. Trading journal scorecard (paper sells auto-journal) */}

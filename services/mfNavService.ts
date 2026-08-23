@@ -215,6 +215,41 @@ export const resolveScheme = async (holdingName: string): Promise<ResolvedScheme
 };
 
 /** Latest declared NAV for a scheme code, cached for the trading day. */
+export interface SchemeSearchHit {
+  schemeCode: number;
+  schemeName: string;
+  confidence: number; // relevance vs the typed query, for ordering only
+}
+
+/**
+ * User-facing scheme search for pickers/dropdowns: returns the top AMFI
+ * matches for free text, best first. Unlike resolveScheme there is NO
+ * confidence floor — the user makes the final choice from real scheme
+ * names, which is exactly what makes the link correct.
+ */
+export const searchSchemes = async (query: string, limit = 8): Promise<SchemeSearchHit[]> => {
+  const trimmed = query.trim();
+  if (trimmed.length < 3) return [];
+  try {
+    const parts = parseFundName(trimmed);
+    const q = parts.coreTokens.slice(0, 4).join(' ') || trimmed;
+    const candidates = await fetchJson<ApiSearchResult[]>(
+      `${API_BASE}/search?q=${encodeURIComponent(q)}`
+    );
+    if (!Array.isArray(candidates)) return [];
+    return candidates
+      .map(c => ({
+        schemeCode: c.schemeCode,
+        schemeName: c.schemeName,
+        confidence: scoreSchemeMatch(parts, c.schemeName)
+      }))
+      .sort((a, b) => b.confidence - a.confidence)
+      .slice(0, limit);
+  } catch {
+    return []; // feed unreachable — the picker shows an empty-state message
+  }
+};
+
 export const getLatestNav = async (schemeCode: number): Promise<LatestNav | null> => {
   const cacheKey = `sunalpha.mf.nav:${schemeCode}`;
   const cached = cacheGet<LatestNav>(cacheKey, NAV_CACHE_TTL_MS);

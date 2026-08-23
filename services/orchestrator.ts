@@ -17,7 +17,7 @@ import { assessRisk, applyRiskGate } from '../domain/agent/riskGate.engine';
 // Helper to determine instrument type from symbol (Mock Logic)
 const identifyInstrument = (symbol: string): InstrumentType => {
     const upper = symbol.toUpperCase();
-    if (upper.includes('-CAP') || upper.includes('FUND') || upper.includes('DIRECT') || upper.includes('PARAG')) return 'MUTUAL_FUND';
+    if (upper.startsWith('MF-') || upper.includes('ELSS') || upper.includes('-CAP') || upper.includes('FUND') || upper.includes('DIRECT') || upper.includes('PARAG')) return 'MUTUAL_FUND';
     if (upper.includes('ETF') || upper.includes('BEES')) return 'ETF';
     if (upper.includes(' CE') || upper.includes(' PE') || upper.includes(' FUT')) return 'DERIVATIVE';
     return 'STOCK';

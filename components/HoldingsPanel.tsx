@@ -1,9 +1,11 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { PortfolioPosition } from '../types';
 import { HoldingAdvice, RedeploymentPlan } from '../domain/advice/advice.types';
 import { JournalScorecard } from '../domain/advice/journal.engine';
-import { Target, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { removeHolding } from '../services/portfolioIoService';
+import { AddHoldingModal } from './AddHoldingModal';
+import { Target, TrendingDown, TrendingUp, Wallet, PlusCircle, Trash2 } from 'lucide-react';
 
 // Rendering only — advice objects come in fully formed from the advice
 // engine (via portfolioEngine.getHoldingAdvices). This component never
@@ -15,6 +17,8 @@ interface HoldingsPanelProps {
   redeployment: RedeploymentPlan | null;
   scorecard?: JournalScorecard | null; // feedback loop: how past advice fared
   onNavigateToAsset: (symbol: string) => void;
+  /** Reload hook after a manual add/remove changes the holdings source. */
+  onHoldingsChanged?: () => void;
 }
 
 const inr = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
@@ -30,10 +34,17 @@ export const HoldingsPanel: React.FC<HoldingsPanelProps> = ({
   advices,
   redeployment,
   scorecard,
-  onNavigateToAsset
+  onNavigateToAsset,
+  onHoldingsChanged
 }) => {
   const adviceBySymbol = new Map<string, HoldingAdvice>(advices.map(a => [a.symbol, a]));
   const totalValue = positions.reduce((s, p) => s + p.currentValue, 0);
+  const [showAddModal, setShowAddModal] = useState(false);
+
+  const handleRemove = (symbol: string) => {
+    removeHolding(symbol);
+    onHoldingsChanged?.();
+  };
 
   return (
     <div className="space-y-6">
@@ -52,17 +63,30 @@ export const HoldingsPanel: React.FC<HoldingsPanelProps> = ({
               </span>
             )}
             <span className="text-xs text-gray-400 font-medium">{positions.length} positions</span>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg hover:bg-black"
+            >
+              <PlusCircle size={13} className="mr-1.5" /> Add
+            </button>
           </div>
         </div>
 
+        {showAddModal && (
+          <AddHoldingModal
+            onClose={() => setShowAddModal(false)}
+            onAdded={() => onHoldingsChanged?.()}
+          />
+        )}
+
         {/* Column header (md+) — broker-style: Avg, LTP, Day, Invested, P&L, Weight, Value */}
         <div className="hidden md:grid grid-cols-12 gap-2 pb-2 border-b border-gray-200 text-[10px] font-bold uppercase tracking-wide text-gray-400">
-          <div className="col-span-3">Instrument</div>
+          <div className="col-span-4">Instrument</div>
           <div className="col-span-1 text-right">Qty</div>
           <div className="col-span-1 text-right">Avg</div>
           <div className="col-span-1 text-right">LTP</div>
           <div className="col-span-1 text-right" title="Today's P&L (quantity × day change)">Day</div>
-          <div className="col-span-2 text-right">Invested</div>
+          <div className="col-span-1 text-right">Invested</div>
           <div className="col-span-1 text-right">P&L</div>
           <div className="col-span-1 text-right" title="Share of portfolio value">Wt%</div>
           <div className="col-span-1 text-right">Value</div>
@@ -76,7 +100,7 @@ export const HoldingsPanel: React.FC<HoldingsPanelProps> = ({
               <div key={pos.id} className="py-3">
                 <div className="grid grid-cols-2 md:grid-cols-12 gap-2 items-center">
                   <div
-                    className="col-span-2 md:col-span-3 cursor-pointer min-w-0"
+                    className="col-span-2 md:col-span-4 cursor-pointer min-w-0 group/name"
                     onClick={() => onNavigateToAsset(pos.symbol)}
                   >
                     <div className="flex items-center gap-2">
@@ -114,7 +138,7 @@ export const HoldingsPanel: React.FC<HoldingsPanelProps> = ({
                       <span className="text-gray-300" title="No intraday mark for this asset (MF NAVs are daily)">—</span>
                     )}
                   </div>
-                  <div className="hidden md:block md:col-span-2 text-right font-mono text-xs text-gray-500">
+                  <div className="hidden md:block md:col-span-1 text-right font-mono text-xs text-gray-500">
                     {inr(pos.investedValue)}
                   </div>
                   <div className="hidden md:block md:col-span-1 text-right font-mono text-xs">
@@ -145,7 +169,14 @@ export const HoldingsPanel: React.FC<HoldingsPanelProps> = ({
                     >
                       {advice.chip}
                     </span>
-                    <p className="text-xs text-gray-600 leading-relaxed">{advice.detail}</p>
+                    <p className="text-xs text-gray-600 leading-relaxed flex-1">{advice.detail}</p>
+                    <button
+                      onClick={() => handleRemove(pos.symbol)}
+                      className="p-1 text-gray-300 hover:text-red-500 shrink-0"
+                      title="Remove this holding (Revert in Import/Export restores the sample book)"
+                    >
+                      <Trash2 size={13} />
+                    </button>
                   </div>
                 )}
               </div>
