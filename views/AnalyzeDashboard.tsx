@@ -2,6 +2,9 @@
 import React, { useEffect, useState } from 'react';
 import { DonutChart, ComparisonLineChart } from '../components/Charts';
 import { calculatePortfolio, generateAIInsights, fetchPortfolioHistory } from '../services/portfolioEngine';
+import { buildPortfolioAnalytics } from '../services/portfolioAnalytics';
+import { PerformanceMetrics } from '../domain/analytics/performance.engine';
+import { PerformanceStats } from '../components/PerformanceStats';
 import { calculateDrift } from '../services/rebalanceEngine';
 import { calculateCapitalSnapshot } from '../services/capitalEngine';
 import { getBrokerProfile } from '../services/brokerService';
@@ -95,6 +98,7 @@ export const AnalyzeDashboard: React.FC<AnalyzeDashboardProps> = ({ initialRebal
   const [portfolio, setPortfolio] = useState<any>(null);
   const [capitalSnapshot, setCapitalSnapshot] = useState<CapitalSnapshot | null>(null);
   const [history, setHistory] = useState<PortfolioHistoryPoint[]>([]);
+  const [perfMetrics, setPerfMetrics] = useState<PerformanceMetrics | null>(null);
   const [insights, setInsights] = useState<Insight[]>([]);
   const [rebalanceSim, setRebalanceSim] = useState<RebalanceSimulation | null>(null);
 
@@ -109,6 +113,15 @@ export const AnalyzeDashboard: React.FC<AnalyzeDashboardProps> = ({ initialRebal
       setPortfolio(p);
       setHistory(h);
       setInsights(generateAIInsights());
+
+      // Real analytics from live feed history (QuantStats-style). Replaces
+      // the simulated chart and adds risk metrics when the feeds answer.
+      buildPortfolioAnalytics(p.positions).then(analytics => {
+          if (analytics) {
+              setHistory(analytics.history);
+              setPerfMetrics(analytics.metrics);
+          }
+      });
       setReports(savedReports);
       
       const sim = calculateDrift(p.positions, 'AGGRESSIVE'); 
@@ -300,6 +313,12 @@ export const AnalyzeDashboard: React.FC<AnalyzeDashboardProps> = ({ initialRebal
                     </div>
                 </div>
                 <ComparisonLineChart data={history} height={300} />
+
+                {perfMetrics && (
+                    <div className="mt-6 pt-6 border-t border-gray-100">
+                        <PerformanceStats metrics={perfMetrics} benchmarkName="NIFTY 50" />
+                    </div>
+                )}
                 </div>
 
                 {/* AI Insights Panel */}
