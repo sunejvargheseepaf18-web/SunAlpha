@@ -4,6 +4,8 @@ import { detectRegime } from './regimeEngine';
 import { resolveScheme, getNavHistory } from './mfNavService';
 import { getLiveQuote, getLiveQuotes, getLiveHistory } from './marketFeed';
 import { getLiveFundamentals } from './fundamentalsFeed';
+import { getLiveChainDetail } from './derivativesFeed';
+import { computeOiSummary, formatOi } from '../domain/derivatives/oiAnalytics.engine';
 
 // Simulating API latency
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -287,10 +289,46 @@ export const fetchMarketPulse = async (): Promise<MarketPulse> => {
 };
 
 export const fetchOptionRadar = async (): Promise<OptionRadarItem[]> => {
+    // Live path: derive every radar item from the REAL NSE chain (PCR, OI
+    // walls, max pain, fresh writing) — numbers a user can verify against
+    // the chain itself. Static fallback only when NSE is unreachable.
+    const items: OptionRadarItem[] = [];
+    for (const symbol of ['NIFTY', 'BANKNIFTY']) {
+        const detail = await getLiveChainDetail(symbol);
+        if (!detail) continue;
+        const s = computeOiSummary(detail.rows);
+        if (!s) continue;
+        const asOfTime = new Date(detail.asOf).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        items.push({
+            id: `${symbol}-pcr`,
+            symbol,
+            insight: `PCR ${s.pcrReading === 'NEUTRAL' ? 'Balanced' : s.pcrReading === 'BULLISH' ? 'Put-Heavy' : 'Call-Heavy'} · ${asOfTime}`,
+            value: `PCR ${s.pcr}`,
+            sentiment: s.pcrReading === 'BEARISH' ? 'BEARISH' : 'BULLISH'
+        });
+        items.push({
+            id: `${symbol}-walls`,
+            symbol,
+            insight: `OI walls ${s.supportStrike} (${formatOi(s.supportOi)} PE) / ${s.resistanceStrike} (${formatOi(s.resistanceOi)} CE)`,
+            value: `Max pain ${s.maxPainStrike}`,
+            sentiment: detail.spot >= s.maxPainStrike ? 'BEARISH' : 'BULLISH'
+        });
+        if (s.changeReading !== 'NEUTRAL') {
+            items.push({
+                id: `${symbol}-writing`,
+                symbol,
+                insight: s.changeReading === 'BULLISH' ? 'Fresh put writing' : 'Fresh call writing',
+                value: `ΔOI ${formatOi(Math.abs(s.putOiChangeSum - s.callOiChangeSum))}`,
+                sentiment: s.changeReading
+            });
+        }
+    }
+    if (items.length > 0) return items.slice(0, 5);
+
+    // NSE unreachable — clearly-labeled sample values, not fake live data.
     return [
-        { id: '1', symbol: 'ADANIENT', insight: 'High IV Spike', value: 'IV 65%', sentiment: 'BEARISH' },
-        { id: '2', symbol: 'NIFTY', insight: 'Long Buildup', value: 'OI +12%', sentiment: 'BULLISH' },
-        { id: '3', symbol: 'BANKNIFTY', insight: 'PCR Oversold', value: 'PCR 0.55', sentiment: 'BULLISH' }
+        { id: '1', symbol: 'NIFTY', insight: 'Sample (feed offline): PCR', value: 'PCR 0.92', sentiment: 'BULLISH' },
+        { id: '2', symbol: 'BANKNIFTY', insight: 'Sample (feed offline): OI walls', value: 'Max pain 55000', sentiment: 'BEARISH' }
     ];
 };
 

@@ -102,4 +102,18 @@ describe('parseNseOptionChain', () => {
     expect(parseNseOptionChain({}, 5, now)).toBeNull();
     expect(parseNseOptionChain({ records: { underlyingValue: 0 } }, 5, now)).toBeNull();
   });
+
+  it("surfaces NSE's own data timestamp as asOf, falling back to now", () => {
+    const withStamp = nseResponse();
+    withStamp.records!.timestamp = '22-Aug-2026 15:30:00';
+    const parsed = parseNseOptionChain(withStamp, 2, now)!;
+    expect(parsed.asOf).toBe(new Date('22-Aug-2026 15:30:00').toISOString());
+
+    const withoutStamp = parseNseOptionChain(nseResponse(), 2, now)!;
+    expect(withoutStamp.asOf).toBe(now.toISOString());
+
+    const badStamp = nseResponse();
+    badStamp.records!.timestamp = 'not a date';
+    expect(parseNseOptionChain(badStamp, 2, now)!.asOf).toBe(now.toISOString());
+  });
 });

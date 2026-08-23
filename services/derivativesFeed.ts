@@ -96,6 +96,7 @@ export interface NseOptionChainResponse {
   records?: {
     expiryDates?: string[];
     underlyingValue?: number;
+    timestamp?: string; // e.g. "22-Aug-2026 15:30:00" — NSE's own data time
     data?: Array<{
       strikePrice?: number;
       expiryDate?: string;
@@ -142,7 +143,7 @@ export const parseNseOptionChain = (
   res: NseOptionChainResponse,
   strikesEachSide = 5,
   now: Date = new Date()
-): { rows: OptionChainRow[]; spot: number; expiry: string } | null => {
+): { rows: OptionChainRow[]; spot: number; expiry: string; asOf: string } | null => {
   const records = res?.records;
   const spot = records?.underlyingValue;
   const expiry = records?.expiryDates?.[0];
@@ -169,47 +170,77 @@ export const parseNseOptionChain = (
     if (Math.abs(rows[i].strike - spot) < Math.abs(rows[atmIdx].strike - spot)) atmIdx = i;
   }
   const start = Math.max(0, atmIdx - strikesEachSide);
-  return { rows: rows.slice(start, start + strikesEachSide * 2 + 1), spot, expiry };
+
+  // NSE stamps its own data time on the payload; surface it so consumers
+  // can show "OI as of 15:30" instead of implying live data after hours.
+  const stamped = records?.timestamp ? new Date(records.timestamp) : null;
+  const asOf = stamped && !isNaN(stamped.getTime()) ? stamped.toISOString() : now.toISOString();
+
+  return { rows: rows.slice(start, start + strikesEachSide * 2 + 1), spot, expiry, asOf };
 };
 
 // ---------------------------------------------------------------------------
 // Fetching with cookie priming, cache and graceful failure
 // ---------------------------------------------------------------------------
 
-const chainCache = new Map<string, { chain: OptionChainRow[]; ts: number }>();
+export interface LiveChainDetail {
+  rows: OptionChainRow[];
+  spot: number;
+  expiry: string;
+  asOf: string; // NSE's own data timestamp — show it, don't imply "live"
+}
+
+const chainCache = new Map<string, { detail: LiveChainDetail; ts: number }>();
 let primed = false;
 
 const INDEX_SYMBOLS = new Set(['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY', 'NIFTYNXT50']);
 
+const prime = async (): Promise<void> => {
+  // Establish NSE's session cookies via the proxy (homepage + option-chain
+  // page, the Python-NSE-Option-Chain-Analyzer session recipe).
+  await fetch(`${NSE_BASE}/`, { headers: { Accept: 'text/html' } }).catch(() => {});
+  await fetch(`${NSE_BASE}/option-chain`, { headers: { Accept: 'text/html' } }).catch(() => {});
+  primed = true;
+};
+
 /**
- * Live option chain for an index or stock. Null on any failure — the caller
- * (foAnalytics) falls back to its simulated chain.
+ * Full chain detail (rows + spot + expiry + NSE's data timestamp) for an
+ * index or stock. One re-prime + retry on 401/403 (expired cookies), never
+ * more — NSE rate-limits aggressively and hammering earns a CAPTCHA wall.
+ * Null on failure — callers fall back to their simulated chain.
  */
-export const getLiveOptionChain = async (symbol: string): Promise<OptionChainRow[] | null> => {
+export const getLiveChainDetail = async (symbol: string): Promise<LiveChainDetail | null> => {
   const upper = symbol.toUpperCase();
   const cached = chainCache.get(upper);
-  if (cached && Date.now() - cached.ts < CHAIN_CACHE_TTL_MS) return cached.chain;
+  if (cached && Date.now() - cached.ts < CHAIN_CACHE_TTL_MS) return cached.detail;
 
   try {
-    if (!primed) {
-      // First hit establishes NSE's session cookies via the proxy.
-      await fetch(`${NSE_BASE}/option-chain`, { headers: { Accept: 'text/html' } }).catch(() => {});
-      primed = true;
-    }
+    if (!primed) await prime();
 
     const endpoint = INDEX_SYMBOLS.has(upper)
       ? `${NSE_BASE}/api/option-chain-indices?symbol=${encodeURIComponent(upper)}`
       : `${NSE_BASE}/api/option-chain-equities?symbol=${encodeURIComponent(upper)}`;
 
-    const res = await fetch(endpoint, { headers: { Accept: 'application/json' } });
+    let res = await fetch(endpoint, { headers: { Accept: 'application/json' } });
+    if (res.status === 401 || res.status === 403) {
+      // Cookie session expired — re-prime once and retry once.
+      await prime();
+      res = await fetch(endpoint, { headers: { Accept: 'application/json' } });
+    }
     if (!res.ok) throw new Error(`NSE chain ${res.status} for ${upper}`);
 
     const parsed = parseNseOptionChain((await res.json()) as NseOptionChainResponse);
     if (!parsed) return null;
 
-    chainCache.set(upper, { chain: parsed.rows, ts: Date.now() });
-    return parsed.rows;
+    chainCache.set(upper, { detail: parsed, ts: Date.now() });
+    return parsed;
   } catch {
-    return null;
+    return cached?.detail ?? null; // expired-but-real beats nothing
   }
+};
+
+/** Rows-only view of getLiveChainDetail (existing callers). */
+export const getLiveOptionChain = async (symbol: string): Promise<OptionChainRow[] | null> => {
+  const detail = await getLiveChainDetail(symbol);
+  return detail?.rows ?? null;
 };
