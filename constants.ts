@@ -54,15 +54,16 @@ export const MOCK_HOLDINGS_DATA: Array<{
   qty: number;
   avg: number;
   last?: number;
+  buyDate: string; // acquisition date (single-lot approximation) for tax terms
 }> = [
-  { symbol: "RELIANCE", name: "Reliance Industries", assetType: 'STOCK', qty: 46, avg: 1310.10, last: 1318.39 },
-  { symbol: "M&M", name: "Mahindra & Mahindra", assetType: 'STOCK', qty: 125, avg: 3420.32, last: 3420.32 },
-  { symbol: "QUANT-ELSS", name: "Quant ELSS Tax Saver Growth Option Direct Growth", assetType: 'MF', qty: 164.83, avg: 407.69 },
-  { symbol: "MIRAE-ELSS", name: "Mirae Asset ELSS Tax Saver", assetType: 'MF', qty: 802.41, avg: 55.85 },
-  { symbol: "AXIS-ELSS", name: "Axis ELSS Tax Saver", assetType: 'MF', qty: 484.93, avg: 109.29 },
-  { symbol: "SBI-CONTRA", name: "SBI Contra Fund Regular", assetType: 'MF', qty: 11.84, avg: 380.18 },
-  { symbol: "NIPPON-ELSS", name: "Nippon India ELSS", assetType: 'MF', qty: 33.03, avg: 144.26 },
-  { symbol: "NIPPON-MULTI", name: "Nippon India Multi Cap Grpwth", assetType: 'MF', qty: 39.26, avg: 305.66 },
+  { symbol: "RELIANCE", name: "Reliance Industries", assetType: 'STOCK', qty: 46, avg: 1310.10, last: 1318.39, buyDate: '2024-10-15' },
+  { symbol: "M&M", name: "Mahindra & Mahindra", assetType: 'STOCK', qty: 125, avg: 3420.32, last: 3420.32, buyDate: '2026-04-10' },
+  { symbol: "QUANT-ELSS", name: "Quant ELSS Tax Saver Growth Option Direct Growth", assetType: 'MF', qty: 164.83, avg: 407.69, buyDate: '2023-08-05' },
+  { symbol: "MIRAE-ELSS", name: "Mirae Asset ELSS Tax Saver", assetType: 'MF', qty: 802.41, avg: 55.85, buyDate: '2025-01-10' },
+  { symbol: "AXIS-ELSS", name: "Axis ELSS Tax Saver", assetType: 'MF', qty: 484.93, avg: 109.29, buyDate: '2026-01-15' },
+  { symbol: "SBI-CONTRA", name: "SBI Contra Fund Regular", assetType: 'MF', qty: 11.84, avg: 380.18, buyDate: '2025-11-20' },
+  { symbol: "NIPPON-ELSS", name: "Nippon India ELSS", assetType: 'MF', qty: 33.03, avg: 144.26, buyDate: '2024-06-01' },
+  { symbol: "NIPPON-MULTI", name: "Nippon India Multi Cap Grpwth", assetType: 'MF', qty: 39.26, avg: 305.66, buyDate: '2026-02-14' },
 ];
 
 export const MOCK_USER_PROGRESS = {

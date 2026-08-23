@@ -168,6 +168,27 @@ export const TaxDashboard = () => {
                         </div>
                     )}
 
+                    {/* Gain Harvesting: use the tax-free LTCG exemption */}
+                    {report.gainHarvestingOpportunities && report.gainHarvestingOpportunities.length > 0 && (
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
+                            <h3 className="font-bold text-blue-900">LTCG Exemption Harvesting (₹1.25L / FY)</h3>
+                            <p className="text-sm text-blue-700 mt-1 mb-4">
+                                Realize long-term gains inside the annual exemption at 0% tax, then rebuy after a day to step up your cost basis.
+                            </p>
+                            <div className="space-y-2">
+                                {report.gainHarvestingOpportunities.map((op, idx) => (
+                                    <div key={idx} className="bg-white rounded-lg border border-blue-100 p-3">
+                                        <div className="flex justify-between text-sm font-medium text-gray-900">
+                                            <span>{op.symbol}</span>
+                                            <span className="text-blue-700 font-bold">saves ~₹{op.taxSaved.toLocaleString()}</span>
+                                        </div>
+                                        <p className="text-xs text-gray-600 mt-1 leading-relaxed">{op.detail}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Recent Taxable Events */}
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                         <div className="p-5 border-b border-gray-100 flex justify-between items-center">

@@ -598,6 +598,18 @@ export interface TaxHarvestOpportunity {
   potentialTaxSave: number;
   term: TaxTerm;
   expiryDate?: string; // Date by which to sell
+  detail?: string; // full instruction: exact qty, rate, amount, offsets
+}
+
+// Gain harvesting: realize LTCG inside the annual exemption at 0% tax
+export interface TaxGainHarvestOpportunity {
+  symbol: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+  gainRealized: number;
+  taxSaved: number;
+  detail: string;
 }
 
 export interface CapitalGainEntry {
@@ -632,6 +644,7 @@ export interface TaxSummary {
   };
 
   harvestingOpportunities: TaxHarvestOpportunity[];
+  gainHarvestingOpportunities?: TaxGainHarvestOpportunity[];
   history: CapitalGainEntry[];
 }
 

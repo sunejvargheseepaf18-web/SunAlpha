@@ -1,6 +1,13 @@
 
 import { TaxSummary, CapitalGainEntry, TaxHarvestOpportunity, PortfolioPosition, PeriodContext } from '../types';
 import { MOCK_HOLDINGS_DATA } from '../constants';
+import {
+  applyLossOffsets,
+  computeEquityTax,
+  findLossHarvests,
+  findGainHarvests,
+  HarvestHolding
+} from '../domain/tax/harvest.engine';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -119,58 +126,53 @@ export const calculateTaxReport = async (positions: PortfolioPosition[], period:
   // STCL can set off STCG and LTCG.
   // LTCL can only set off LTCG.
   
-  let netSTCG = realizedSTCG;
-  let netLTCG = realizedLTCG;
+  // Offsets per the statutory rules (pure domain): STCL offsets both gain
+  // types; LTCL offsets LTCG only. Rates/exemption from EQUITY_TAX_RULES
+  // (20% STCG, 12.5% LTCG above the Rs 1.25L exemption).
+  const offsets = applyLossOffsets(realizedSTCG, realizedLTCG);
+  const netSTCG = realizedSTCG < 0 ? realizedSTCG : offsets.netSTCG;
+  const netLTCG = realizedLTCG < 0 ? realizedLTCG : offsets.netLTCG;
 
-  // If STCG is negative, try to offset LTCG? No, usually STCL offsets STCG and LTCG.
-  // If LTCG is negative, it carries forward, cannot offset STCG.
-  
-  // Implementation for MVP: Pure liability on positive numbers
-  const taxLiabilitySTCG = Math.max(0, netSTCG * 0.15);
-  
-  const ltcgExemption = 100000;
-  // Exemption only applies if total LTCG > 1L in a year.
-  // If period is QTR, we should ideally project, but here we just calc strictly on realized.
-  const taxableLTCG = Math.max(0, netLTCG - ltcgExemption);
-  const taxLiabilityLTCG = taxableLTCG * 0.10;
+  const equityTax = computeEquityTax(offsets.netSTCG, offsets.netLTCG);
+  const taxLiabilitySTCG = equityTax.stcgTax;
+  const taxableLTCG = equityTax.taxableLTCG;
+  const taxLiabilityLTCG = equityTax.ltcgTax;
 
   const taxLiabilityBusiness = Math.max(0, businessIncome * 0.30); // Assumed 30% slab
 
   // 4. Identify Tax Harvesting Opportunities (Unrealized)
   // These are based on CURRENT holdings, unrelated to selected period history
   // But strictly speaking, you harvest to offset gains in the SELECTED period.
-  const harvestingOpportunities: TaxHarvestOpportunity[] = [];
+  // Terms come from real buy dates (joined from the holdings data), offsets
+  // and rates from the pure tax domain engine — no randomness.
+  const buyDateBySymbol = new Map(MOCK_HOLDINGS_DATA.map(h => [h.symbol, h.buyDate]));
+  const asOf = new Date().toISOString().split('T')[0];
+  const harvestable: HarvestHolding[] = positions
+    .filter(p => (p.assetType === 'STOCK' || p.assetType === 'MF') && buyDateBySymbol.has(p.symbol))
+    .map(p => ({
+      symbol: p.symbol,
+      assetType: p.assetType as 'STOCK' | 'MF',
+      quantity: p.quantity,
+      avgPrice: p.avgPrice,
+      currentPrice: p.currentPrice,
+      buyDate: buyDateBySymbol.get(p.symbol)!
+    }));
 
-  positions.forEach(pos => {
-    if (pos.pnl < 0) {
-        if (Math.abs(pos.pnl) > 1000) {
-            const isLongTerm = Math.random() > 0.7; 
-            const term = isLongTerm ? 'LTCG' : 'STCG';
-            
-            // Tax saving calculation
-            // Only valuable if we have realized gains in the current scope
-            let save = 0;
-            if (term === 'STCG' && netSTCG > 0) {
-                save = Math.abs(pos.pnl) * 0.15;
-            } else if (term === 'LTCG' && taxableLTCG > 0) {
-                save = Math.abs(pos.pnl) * 0.10;
-            }
+  const lossHarvests = findLossHarvests(
+    harvestable,
+    { stcg: offsets.netSTCG, ltcg: offsets.netLTCG },
+    asOf
+  );
+  const harvestingOpportunities: TaxHarvestOpportunity[] = lossHarvests.map(l => ({
+    symbol: l.symbol,
+    quantity: l.quantity,
+    unrealizedLoss: -l.loss,
+    potentialTaxSave: l.taxSaved > 0 ? l.taxSaved : parseFloat((l.carryForwardLoss * 0.125).toFixed(2)),
+    term: l.term,
+    detail: l.detail
+  }));
 
-            // Even if no current gains, valid for carry forward
-            if (save === 0) save = Math.abs(pos.pnl) * 0.10; // Potential future save
-
-            if (save > 0) {
-                harvestingOpportunities.push({
-                    symbol: pos.symbol,
-                    quantity: pos.quantity,
-                    unrealizedLoss: pos.pnl,
-                    potentialTaxSave: save,
-                    term
-                });
-            }
-        }
-    }
-  });
+  const gainHarvestingOpportunities = findGainHarvests(harvestable, Math.max(0, netLTCG), asOf);
 
   return {
     period,
@@ -187,6 +189,7 @@ export const calculateTaxReport = async (positions: PortfolioPosition[], period:
         business: businessIncome < 0 ? Math.abs(businessIncome) : 0
     },
     harvestingOpportunities,
+    gainHarvestingOpportunities,
     history: periodHistory
   };
 };
