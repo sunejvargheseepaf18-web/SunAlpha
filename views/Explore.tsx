@@ -10,6 +10,7 @@ import { Compass, ScanSearch, TrendingUp, ArrowRight, Zap, Target, Activity, Lay
 import { ContextPanel } from '../components/ContextPanel';
 import { MarketStateCard } from '../components/SituationPanels';
 import { RebalanceSuggestionCard } from '../components/RebalanceSuggestionCard';
+import { CopyTradingPanel } from '../components/CopyTradingPanel';
 
 interface ExploreProps {
   mode: AppMode;
@@ -298,6 +299,10 @@ export const Explore: React.FC<ExploreProps> = ({ mode, onInitiateRebalance }) =
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {data.scans.map(scan => <ScannerCard key={scan.id} scan={scan} />)}
                     </div>
+                  </section>
+
+                  <section>
+                    <CopyTradingPanel />
                   </section>
 
                   <section>
