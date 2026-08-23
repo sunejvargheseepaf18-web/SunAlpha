@@ -10,6 +10,8 @@ import { fetchBaskets } from './basketEngine';
 import { runBullBearDebate } from './ai/debateEngine';
 import { getSymbolLessonsText } from './lessonMemory';
 import { getSymbolNews } from './newsService';
+import { getEsgScores } from './fundamentalsFeed';
+import { computeQualityScore } from '../domain/fundamentals/quality.engine';
 
 // Helper to determine instrument type from symbol (Mock Logic)
 const identifyInstrument = (symbol: string): InstrumentType => {
@@ -55,17 +57,19 @@ export const getAssetIntelligence = async (symbol: string): Promise<AssetIntelli
 
     // C. STOCK / ETF PATH (Standard Intelligence)
     
-    // 1. Parallel Fetching of Raw Data (news is best-effort — null offline)
-    const [stockData, fundamentalData, news] = await Promise.all([
+    // 1. Parallel Fetching of Raw Data (news and ESG are best-effort — null offline)
+    const [stockData, fundamentalData, news, esg] = await Promise.all([
         fetchStockDetails(symbol),
         fetchFundamentalDetails(symbol),
-        getSymbolNews(symbol)
+        getSymbolNews(symbol),
+        getEsgScores(symbol)
     ]);
 
     // 2. Run Intelligence Engines
     const regime = detectRegime(stockData);
     const taReport = generateTechnicalReport(stockData);
     const faReport = generateFundamentalReport(fundamentalData);
+    const quality = computeQualityScore(fundamentalData);
 
     // 3. Synthesize Conviction (The Brain)
     const conviction = generateConviction(taReport, faReport, regime);
@@ -106,6 +110,8 @@ export const getAssetIntelligence = async (symbol: string): Promise<AssetIntelli
         regime,
         debate: debate ?? undefined,
         news: news ?? undefined,
+        quality,
+        esg: esg ?? undefined,
         lastUpdated: new Date().toISOString()
     };
 };

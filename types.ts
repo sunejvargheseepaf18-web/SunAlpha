@@ -372,6 +372,18 @@ export interface ExploreIntelligence {
 
 import type { DebateVerdict } from './domain/advice/advice.types';
 import type { AggregateSentiment } from './domain/sentiment/sentiment.engine';
+import type { QualityReport } from './domain/fundamentals/quality.engine';
+
+// --- ESG (Sustainalytics via Yahoo esgScores) ---
+
+export interface EsgScores {
+  totalEsg: number; // ESG *risk* score — LOWER is better
+  environmentScore: number;
+  socialScore: number;
+  governanceScore: number;
+  controversyLevel: number; // 0-5
+  performance?: string; // e.g. 'AVG_PERF'
+}
 
 // --- News & Sentiment ---
 
@@ -408,6 +420,10 @@ export interface AssetIntelligence {
   debate?: DebateVerdict;
   // Headlines + lexicon sentiment (absent when the news feed is unreachable)
   news?: SymbolNewsSentiment;
+  // Piotroski-style 9-point quality checklist over the fundamentals snapshot
+  quality?: QualityReport;
+  // Sustainalytics ESG risk scores (absent when Yahoo has no coverage)
+  esg?: EsgScores;
 
   lastUpdated: string;
 }

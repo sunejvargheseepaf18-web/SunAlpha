@@ -15,6 +15,7 @@ import { DebatePanel } from '../components/DebatePanel';
 import { BacktestPanel } from '../components/BacktestPanel';
 import { NewsPanel } from '../components/NewsPanel';
 import { StrategyBuilderPanel } from '../components/StrategyBuilderPanel';
+import { QualityPanel } from '../components/QualityPanel';
 
 interface AssetWorkspaceProps {
   symbol?: string;
@@ -139,7 +140,12 @@ export const AssetWorkspace: React.FC<AssetWorkspaceProps> = ({ symbol = 'RELIAN
                     )}
 
                     {activeTab === 'FUNDAMENTAL' && intelligence.fundamental && (
-                        <FundamentalAnalysis report={intelligence.fundamental} />
+                        <>
+                            <FundamentalAnalysis report={intelligence.fundamental} />
+                            {intelligence.quality && (
+                                <QualityPanel quality={intelligence.quality} esg={intelligence.esg} />
+                            )}
+                        </>
                     )}
 
                     {activeTab === 'CHART' && intelligence.conviction && (

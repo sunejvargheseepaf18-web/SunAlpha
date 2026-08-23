@@ -3,6 +3,7 @@ import { StockData, MarketIndex, FundamentalData, MarketQuote, MarketPulse, Opti
 import { detectRegime } from './regimeEngine';
 import { resolveScheme, getNavHistory } from './mfNavService';
 import { getLiveQuote, getLiveQuotes, getLiveHistory } from './marketFeed';
+import { getLiveFundamentals } from './fundamentalsFeed';
 
 // Simulating API latency
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -244,12 +245,11 @@ export const fetchQuotes = async (symbols: string[]): Promise<MarketQuote[]> => 
 };
 
 export const fetchFundamentalDetails = async (symbol: string): Promise<FundamentalData> => {
-  await delay(600);
-
-  // Generate plausible fundamental data based on symbol
+  // Simulated baseline first (also serves as the fallback for fields the
+  // live feed doesn't carry), then overlay real Yahoo quoteSummary numbers.
   const isTech = ['INFY', 'TCS', 'AAPL', 'MSFT', 'GOOGL'].includes(symbol);
-  
-  return {
+
+  const fallback: FundamentalData = {
     symbol,
     roe: isTech ? 25 + Math.random() * 10 : 12 + Math.random() * 8,
     roce: isTech ? 30 + Math.random() * 10 : 15 + Math.random() * 5,
@@ -266,6 +266,9 @@ export const fetchFundamentalDetails = async (symbol: string): Promise<Fundament
     promoterHolding: 40 + Math.random() * 30,
     pledgedShares: Math.random() > 0.8 ? Math.random() * 5 : 0 // Small chance of pledging
   };
+
+  const live = await getLiveFundamentals(symbol, fallback);
+  return live ?? fallback;
 };
 
 // --- Situation Awareness Data ---
