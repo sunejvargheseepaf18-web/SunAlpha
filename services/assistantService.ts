@@ -11,6 +11,7 @@ import { calculatePortfolio, getHoldingAdvices } from './portfolioEngine';
 import { getLiveQuote } from './marketFeed';
 import { runMarketScans } from './scannerEngine';
 import { getAlerts } from './alertService';
+import { getBrokerProfile } from './brokerService';
 import { fetchMarketPulse } from './marketData';
 import { generateText, runToolLoop, AgentTool } from './ai/llm';
 import { Type } from '@google/genai';
@@ -48,14 +49,16 @@ const HELP_TEXT = [
 ].join('\n');
 
 const answerPortfolio = async (): Promise<string> => {
-  const p = await calculatePortfolio();
+  const [p, broker] = await Promise.all([calculatePortfolio(), getBrokerProfile()]);
   if (p.positions.length === 0) return 'No positions found.';
   const best = [...p.positions].sort((a, b) => b.pnlPercent - a.pnlPercent)[0];
   const worst = [...p.positions].sort((a, b) => a.pnlPercent - b.pnlPercent)[0];
   const pnlPct = p.totalInvested > 0 ? (p.totalPnl / p.totalInvested) * 100 : 0;
+  const cash = broker?.funds ?? 0;
   return [
-    `Portfolio: ${inr(p.totalValue)} (invested ${inr(p.totalInvested)}).`,
-    `P&L: ${p.totalPnl >= 0 ? '+' : ''}${inr(p.totalPnl)} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%).`,
+    // Same identity every surface uses: net worth = holdings + cash.
+    `Net worth: ${inr(p.totalValue + cash)} (holdings ${inr(p.totalValue)} + cash ${inr(cash)}).`,
+    `Invested ${inr(p.totalInvested)} · P&L ${p.totalPnl >= 0 ? '+' : ''}${inr(p.totalPnl)} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%).`,
     `Best: ${best.symbol} ${best.pnlPercent >= 0 ? '+' : ''}${best.pnlPercent.toFixed(1)}% · Worst: ${worst.symbol} ${worst.pnlPercent.toFixed(1)}%.`
   ].join('\n');
 };

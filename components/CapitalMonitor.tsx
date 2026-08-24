@@ -57,8 +57,11 @@ export const CapitalMonitor: React.FC<CapitalMonitorProps> = ({ snapshot, compac
             {/* Left: Composition */}
             <div className="p-5 border-r border-gray-100">
                 <div className="flex items-center justify-between mb-4">
-                    <span className="text-xs font-bold text-gray-400 uppercase">Exposure Split</span>
-                    <span className="text-xs text-gray-500">Total: <span className="font-bold text-gray-900">₹{(snapshot.totalExposure/100000).toFixed(2)}L</span></span>
+                    <span className="text-xs font-bold text-gray-400 uppercase">Capital Split</span>
+                    {/* The parts below are Cash + Invested + Margin — the total
+                        must be their sum (own capital), not bare exposure,
+                        or the row visibly fails to add up. */}
+                    <span className="text-xs text-gray-500">Total: <span className="font-bold text-gray-900">₹{((snapshot.ownCash + snapshot.investedOwnCapital + snapshot.marginUsed)/100000).toFixed(2)}L</span></span>
                 </div>
                 
                 {/* Visual Bar */}

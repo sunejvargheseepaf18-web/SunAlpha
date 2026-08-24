@@ -148,15 +148,22 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
              <div className="bg-white rounded-2xl p-6 shadow-sm border border-emerald-100 flex flex-col justify-between">
                 <div>
                 <p className="text-sm text-gray-500 font-medium uppercase tracking-wide">Net Worth ({executionMode === 'PAPER' ? 'Virtual' : 'Real'})</p>
+                {/* Net worth = holdings + broker cash — the SAME holdings sum
+                    the Holdings panel shows, with cash broken out so the two
+                    pages visibly reconcile. */}
                 <h3 className="text-4xl font-bold text-gray-900 mt-2">
-                    ₹{portfolio?.totalValue?.toLocaleString() || '0'}
+                    ₹{Math.round((portfolio?.totalValue || 0) + (capitalSnapshot?.ownCash ?? 0)).toLocaleString('en-IN')}
                 </h3>
+                <p className="text-xs text-gray-400 mt-1 font-mono">
+                    Holdings ₹{Math.round(portfolio?.totalValue || 0).toLocaleString('en-IN')}
+                    {capitalSnapshot ? ` + Cash ₹${Math.round(capitalSnapshot.ownCash).toLocaleString('en-IN')}` : ''}
+                </p>
                 <div className="flex items-center mt-2 space-x-2">
                     <span className={`flex items-center px-2 py-0.5 rounded text-sm font-semibold ${portfolio.totalPnl >= 0 ? 'text-emerald-600 bg-emerald-50' : 'text-red-600 bg-red-50'}`}>
                     <ArrowUpRight size={16} className="mr-1" />
                     {portfolio.totalPnl >= 0 ? '+' : ''}{((portfolio.totalPnl / (portfolio.totalInvested || 1)) * 100).toFixed(2)}%
                     </span>
-                    <span className="text-gray-400 text-sm">All time returns</span>
+                    <span className="text-gray-400 text-sm">All time returns on holdings</span>
                 </div>
                 </div>
                 
