@@ -54,9 +54,10 @@ export default defineConfig(({ mode }) => {
       build: {
         rollupOptions: {
           output: {
-            // Heavy libraries in their own long-cacheable chunks
+            // Heavy libraries in their own long-cacheable chunks. (React
+            // stays in the main chunk — a separate one came out empty since
+            // the JSX runtime pulls it into every chunk anyway.)
             manualChunks: {
-              react: ['react', 'react-dom'],
               charts: ['recharts', 'lightweight-charts'],
               ai: ['@google/genai']
             }

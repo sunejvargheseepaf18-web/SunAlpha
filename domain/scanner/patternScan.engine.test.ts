@@ -7,6 +7,7 @@ import {
   detectNr7,
   detectInsideBar,
   detectNear52wHigh,
+  detectFailedSignal,
   runPatternScans
 } from './patternScan.engine';
 import { BtBar } from '../backtest/backtest.engine';
@@ -132,6 +133,42 @@ describe('detectNear52wHigh', () => {
   it('does not fire deep below the high', () => {
     const bars = [...flat(80, 100), ...flat(10, 80).map((b, i) => ({ ...b, date: `e${i}` }))];
     expect(detectNear52wHigh(bars)).toBeNull();
+  });
+});
+
+describe('detectFailedSignal', () => {
+  it('flags a bull trap: breakout two sessions ago, close back inside', () => {
+    // 30 flat bars (high 101), breakout close 104, then fade back to 99.5
+    const bars = [
+      ...flat(30),
+      bar(30, 104, { high: 104.5 }), // breakout bar
+      bar(31, 100.5),
+      bar(32, 99.5) // latest close back below the broken 101 high
+    ];
+    const hit = detectFailedSignal(bars)!;
+    expect(hit.kind).toBe('FAILED_BREAKOUT');
+    expect(hit.description).toContain('bull trap');
+  });
+
+  it('flags a bear trap: breakdown that recovered', () => {
+    const bars = [
+      ...flat(30),
+      bar(30, 96, { low: 95.5 }), // breakdown below the 99 low
+      bar(31, 100.5) // recovered above it
+    ];
+    const hit = detectFailedSignal(bars)!;
+    expect(hit.kind).toBe('FAILED_BREAKDOWN');
+    expect(hit.description).toContain('bear trap');
+  });
+
+  it('a breakout still holding above the level is NOT a failed signal', () => {
+    const bars = [...flat(30), bar(30, 104), bar(31, 103.5), bar(32, 103)];
+    expect(detectFailedSignal(bars)).toBeNull();
+  });
+
+  it('null on quiet tapes and short histories', () => {
+    expect(detectFailedSignal(flat(40))).toBeNull();
+    expect(detectFailedSignal(flat(10))).toBeNull();
   });
 });
 

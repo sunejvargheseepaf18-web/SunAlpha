@@ -106,6 +106,7 @@ export const AnalyzeDashboard: React.FC<AnalyzeDashboardProps> = ({ initialRebal
   const [capitalSnapshot, setCapitalSnapshot] = useState<CapitalSnapshot | null>(null);
   const [history, setHistory] = useState<PortfolioHistoryPoint[]>([]);
   const [perfMetrics, setPerfMetrics] = useState<PerformanceMetrics | null>(null);
+  const [historyIsLive, setHistoryIsLive] = useState(false);
   const [optimization, setOptimization] = useState<OptimizationResult | null>(null);
   const [income, setIncome] = useState<IncomeReport | null>(null);
   const [insights, setInsights] = useState<Insight[]>([]);
@@ -138,6 +139,7 @@ export const AnalyzeDashboard: React.FC<AnalyzeDashboardProps> = ({ initialRebal
           if (analytics) {
               setHistory(analytics.history);
               setPerfMetrics(analytics.metrics);
+              setHistoryIsLive(true);
           }
       });
 
@@ -355,12 +357,26 @@ export const AnalyzeDashboard: React.FC<AnalyzeDashboardProps> = ({ initialRebal
                         </div>
                         <div>
                             <h3 className="font-bold text-gray-800">Performance vs Benchmark</h3>
-                            <p className="text-xs text-gray-500">Trailing 6 Months</p>
+                            <p className="text-xs text-gray-500">
+                                {historyIsLive ? 'From live price history' : 'Sample curve — building live history…'}
+                            </p>
                         </div>
                     </div>
                     <div className="text-right">
-                        <p className="text-xs text-gray-500">Alpha Generated</p>
-                        <p className="font-bold text-emerald-600 text-lg">+4.2%</p>
+                        <p className="text-xs text-gray-500">Alpha vs NIFTY</p>
+                        {(() => {
+                            // Real alpha: portfolio vs benchmark growth over the
+                            // charted span (both series normalized to 100).
+                            const last = history[history.length - 1];
+                            const alpha = historyIsLive && last
+                                ? last.portfolioValue - last.benchmarkValue
+                                : null;
+                            return (
+                                <p className={`font-bold text-lg ${alpha === null ? 'text-gray-300' : alpha >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                    {alpha === null ? '—' : `${alpha >= 0 ? '+' : ''}${alpha.toFixed(1)}%`}
+                                </p>
+                            );
+                        })()}
                     </div>
                 </div>
                 <ComparisonLineChart data={history} height={300} />

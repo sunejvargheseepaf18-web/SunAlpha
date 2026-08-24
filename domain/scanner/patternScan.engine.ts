@@ -183,6 +183,50 @@ export const detectNear52wHigh = (bars: BtBar[], withinPct = 5): PatternHit | nu
   };
 };
 
+export interface FailedSignalHit {
+  kind: 'FAILED_BREAKOUT' | 'FAILED_BREAKDOWN';
+  description: string;
+}
+
+/**
+ * Failed-signal detection (bull/bear traps): within the last `recent`
+ * sessions a close broke the prior `lookback`-day extreme, but the LATEST
+ * close is back inside the broken level — the signal fired and failed.
+ * The classic trap read: failed moves fuel fast moves the other way.
+ */
+export const detectFailedSignal = (
+  bars: BtBar[],
+  lookback = 20,
+  recent = 3
+): FailedSignalHit | null => {
+  if (bars.length < lookback + recent + 1) return null;
+  const last = bars[bars.length - 1];
+
+  for (let back = 1; back <= recent; back++) {
+    const idx = bars.length - 1 - back; // the candidate breakout bar
+    const prior = bars.slice(idx - lookback, idx);
+    const priorHigh = Math.max(...prior.map(b => b.high));
+    const priorLow = Math.min(...prior.map(b => b.low));
+    const candidate = bars[idx];
+
+    if (candidate.close > priorHigh && last.close < priorHigh) {
+      const failPct = ((priorHigh - last.close) / priorHigh) * 100;
+      return {
+        kind: 'FAILED_BREAKOUT',
+        description: `Broke the ${lookback}-day high ${rupees(priorHigh)} ${back} session${back > 1 ? 's' : ''} ago but closed back ${failPct.toFixed(1)}% below it — bull trap; failed moves often fuel the move down.`
+      };
+    }
+    if (candidate.close < priorLow && last.close > priorLow) {
+      const failPct = ((last.close - priorLow) / priorLow) * 100;
+      return {
+        kind: 'FAILED_BREAKDOWN',
+        description: `Broke the ${lookback}-day low ${rupees(priorLow)} ${back} session${back > 1 ? 's' : ''} ago but recovered ${failPct.toFixed(1)}% above it — bear trap; shorts squeezed.`
+      };
+    }
+  }
+  return null;
+};
+
 /** Run every pattern detector over one symbol's bars. */
 export const runPatternScans = (bars: BtBar[]): PatternHit[] =>
   [

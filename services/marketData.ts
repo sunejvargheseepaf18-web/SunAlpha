@@ -7,6 +7,7 @@ import { getLiveFundamentals } from './fundamentalsFeed';
 import { getLiveChainDetail } from './derivativesFeed';
 import { computeOiSummary, formatOi } from '../domain/derivatives/oiAnalytics.engine';
 import { patchLastBarWithQuote } from '../domain/screener/screener.engine';
+import { detectFailedSignal } from '../domain/scanner/patternScan.engine';
 
 // Simulating API latency
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -230,20 +231,15 @@ export const fetchQuotes = async (symbols: string[]): Promise<MarketQuote[]> => 
     return symbols.map(sym => {
         const liveQuote = live.get(sym);
         if (liveQuote) return liveQuote;
-        // Consistent-ish random data
-        const seed = sym.length; 
-        const basePrice = seed * 150 + 50;
-        const volatility = (seed % 3) + 1;
-        const change = (Math.random() - 0.45) * volatility * 10;
-        const price = basePrice + change;
-        const changePercent = (change / basePrice) * 100;
-
+        // Feed can't answer: a deterministic placeholder marked OFFLINE —
+        // never a random price flutter pretending to be NSE data.
+        const basePrice = sym.length * 150 + 50;
         return {
             symbol: sym,
-            price: parseFloat(price.toFixed(2)),
-            change: parseFloat(change.toFixed(2)),
-            changePercent: parseFloat(changePercent.toFixed(2)),
-            exchange: 'NSE'
+            price: basePrice,
+            change: 0,
+            changePercent: 0,
+            exchange: 'OFFLINE'
         };
     });
 };
@@ -387,9 +383,31 @@ export const fetchOptionRadar = async (): Promise<OptionRadarItem[]> => {
 };
 
 export const fetchFailedSignals = async (): Promise<FailedSignal[]> => {
+    // Live path: real bull/bear traps detected from price history — a
+    // breakout/breakdown in the last sessions whose latest close is back
+    // inside the broken level. Empty when nothing failed (that's honest).
+    const symbols = PULSE_UNIVERSE.map(u => u.symbol);
+    const histories = await Promise.all(symbols.map(s => getLiveHistory(s, 90)));
+
+    const hits: FailedSignal[] = [];
+    symbols.forEach((symbol, i) => {
+        if (histories[i].length < 30) return;
+        const hit = detectFailedSignal(histories[i]);
+        if (hit) {
+            hits.push({
+                id: `failed-${symbol}`,
+                symbol,
+                signal: hit.kind === 'FAILED_BREAKOUT' ? '20-day breakout' : '20-day breakdown',
+                failureReason: hit.description
+            });
+        }
+    });
+    if (hits.length > 0 || histories.some(h => h.length >= 30)) return hits.slice(0, 4);
+
+    // Feed unreachable — clearly-labeled samples, not fake detections.
     return [
-        { id: '1', symbol: 'TCS', signal: 'Volume Breakout', failureReason: 'Price rejected at R1 resistance' },
-        { id: '2', symbol: 'SBIN', signal: 'Golden Cross', failureReason: 'Lack of follow-through volume' }
+        { id: '1', symbol: 'TCS', signal: 'Sample (feed offline)', failureReason: 'Breakout rejected at resistance — example only.' },
+        { id: '2', symbol: 'SBIN', signal: 'Sample (feed offline)', failureReason: 'Breakdown recovered — example only.' }
     ];
 };
 
