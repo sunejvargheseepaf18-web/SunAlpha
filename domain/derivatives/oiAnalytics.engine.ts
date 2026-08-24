@@ -66,8 +66,16 @@ export const computeMaxPain = (rows: OptionChainRow[]): number => {
   return best;
 };
 
-/** Derive the whole OI picture from a chain window. Null on an empty chain. */
-export const computeOiSummary = (rows: OptionChainRow[]): OiSummary | null => {
+/**
+ * Derive the whole OI picture from a chain window. Null on an empty chain.
+ * `officialTotals` (NSE's own totOI figures, when the payload carries them)
+ * override the computed totals so PCR matches the exchange's published
+ * number exactly; walls, max pain and ΔOI still come from the rows.
+ */
+export const computeOiSummary = (
+  rows: OptionChainRow[],
+  officialTotals?: { ceOi: number; peOi: number }
+): OiSummary | null => {
   if (rows.length === 0) return null;
 
   let totalCallOi = 0;
@@ -84,6 +92,11 @@ export const computeOiSummary = (rows: OptionChainRow[]): OiSummary | null => {
     putOiChangeSum += row.pe.oiChange;
     if (row.pe.oi > support.pe.oi) support = row;
     if (row.ce.oi > resistance.ce.oi) resistance = row;
+  }
+  // Exchange-published totals win over our own summation.
+  if (officialTotals && (officialTotals.ceOi > 0 || officialTotals.peOi > 0)) {
+    totalCallOi = officialTotals.ceOi;
+    totalPutOi = officialTotals.peOi;
   }
   if (totalCallOi <= 0 && totalPutOi <= 0) return null; // no OI at all — nothing to read
 

@@ -102,6 +102,38 @@ describe('parseYahooDividends', () => {
   });
 });
 
+describe('parseYahooQuote previous-close precedence', () => {
+  it('uses previousClose (true prior session) over chartPreviousClose', () => {
+    // After hours on a range=1d request, chartPreviousClose is TWO sessions
+    // back — computing day change against it was the "rate incorrect" bug.
+    const res: YahooChartResponse = {
+      chart: {
+        result: [
+          {
+            meta: {
+              symbol: 'RELIANCE.NS',
+              regularMarketPrice: 1318.39,
+              previousClose: 1310.1, // yesterday — correct base
+              chartPreviousClose: 1295.0, // day before yesterday — wrong base
+              regularMarketTime: 1755856800
+            }
+          }
+        ]
+      }
+    };
+    const quote = parseYahooQuote('RELIANCE', res)!;
+    expect(quote.change).toBeCloseTo(8.29, 2); // vs 1310.1, NOT vs 1295
+    expect(quote.changePercent).toBeCloseTo(0.63, 2);
+  });
+
+  it('falls back to chartPreviousClose when previousClose is absent', () => {
+    const res: YahooChartResponse = {
+      chart: { result: [{ meta: { regularMarketPrice: 100, chartPreviousClose: 98 } }] }
+    };
+    expect(parseYahooQuote('X', res)!.change).toBeCloseTo(2, 6);
+  });
+});
+
 describe('parseYahooHistory', () => {
   it('zips timestamps with OHLCV and drops null holiday rows', () => {
     const bars = parseYahooHistory(chartResponse());

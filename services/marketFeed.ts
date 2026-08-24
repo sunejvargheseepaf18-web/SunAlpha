@@ -104,7 +104,11 @@ export interface OhlcvBar {
 export const parseYahooQuote = (symbol: string, res: YahooChartResponse): LiveQuote | null => {
   const meta = res?.chart?.result?.[0]?.meta;
   const price = meta?.regularMarketPrice;
-  const prevClose = meta?.chartPreviousClose ?? meta?.previousClose;
+  // previousClose is the true prior-session close for regularMarketPrice.
+  // chartPreviousClose is only the close before the CHART WINDOW — after
+  // hours on a range=1d request that is TWO sessions back, which made day
+  // change/% (and day P&L) compute against the wrong session. Fallback only.
+  const prevClose = meta?.previousClose ?? meta?.chartPreviousClose;
   if (typeof price !== 'number' || !isFinite(price) || price <= 0) return null;
 
   const change = typeof prevClose === 'number' && prevClose > 0 ? price - prevClose : 0;

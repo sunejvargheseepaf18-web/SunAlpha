@@ -111,6 +111,16 @@ describe('computeOiSummary', () => {
     expect(computeOiSummary([])).toBeNull();
     expect(computeOiSummary([row(24500, 0, 0)])).toBeNull();
   });
+
+  it("NSE's official totals override computed totals so PCR matches the exchange", () => {
+    const s = computeOiSummary(chain, { ceOi: 10000000, peOi: 12000000 })!;
+    expect(s.totalCallOi).toBe(10000000);
+    expect(s.totalPutOi).toBe(12000000);
+    expect(s.pcr).toBeCloseTo(1.2, 2);
+    // Walls still come from the rows, not the totals
+    expect(s.supportStrike).toBe(24400);
+    expect(s.resistanceStrike).toBe(24600);
+  });
 });
 
 describe('oiScanHits', () => {

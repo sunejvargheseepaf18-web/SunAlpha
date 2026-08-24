@@ -118,6 +118,15 @@ describe('parseNseOptionChain', () => {
     expect(fullCallOi).toBeGreaterThan(windowCallOi);
   });
 
+  it("carries NSE's official filtered totals when the payload has them", () => {
+    const withTotals = nseResponse();
+    withTotals.filtered = { CE: { totOI: 9876543 }, PE: { totOI: 8765432 } };
+    const parsed = parseNseOptionChain(withTotals, 2, now)!;
+    expect(parsed.officialTotals).toEqual({ ceOi: 9876543, peOi: 8765432 });
+    // Absent or empty totals -> undefined, consumers fall back to summation
+    expect(parseNseOptionChain(nseResponse(), 2, now)!.officialTotals).toBeUndefined();
+  });
+
   it("surfaces NSE's own data timestamp as asOf, falling back to now", () => {
     const withStamp = nseResponse();
     withStamp.records!.timestamp = '22-Aug-2026 15:30:00';

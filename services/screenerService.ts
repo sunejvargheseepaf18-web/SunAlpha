@@ -103,7 +103,7 @@ export const runLiveScreens = async (): Promise<ScannerResult[] | null> => {
     const detail = chainDetails[i];
     if (!detail) continue;
     // Whole-chain OI, not the ATM display window — walls beyond 5 strikes count.
-    const summary = computeOiSummary(detail.fullRows);
+    const summary = computeOiSummary(detail.fullRows, detail.officialTotals);
     if (!summary) continue;
     for (const hit of oiScanHits(summary, detail.spot)) {
       oiResults.push({

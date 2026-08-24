@@ -104,6 +104,17 @@ export interface NseOptionChainResponse {
       PE?: NseOptionSide;
     }>;
   };
+  // NSE's OWN nearest-expiry totals — the exact numbers its site displays.
+  // Ground truth for total OI / PCR when present.
+  filtered?: {
+    CE?: { totOI?: number; totVol?: number };
+    PE?: { totOI?: number; totVol?: number };
+  };
+}
+
+export interface OfficialOiTotals {
+  ceOi: number;
+  peOi: number;
 }
 
 const daysUntil = (nseDate: string, now: Date): number => {
@@ -157,7 +168,14 @@ export const parseNseOptionChain = (
   res: NseOptionChainResponse,
   strikesEachSide = 5,
   now: Date = new Date()
-): { rows: OptionChainRow[]; fullRows: OptionChainRow[]; spot: number; expiry: string; asOf: string } | null => {
+): {
+  rows: OptionChainRow[];
+  fullRows: OptionChainRow[];
+  spot: number;
+  expiry: string;
+  asOf: string;
+  officialTotals?: OfficialOiTotals;
+} | null => {
   const records = res?.records;
   const spot = records?.underlyingValue;
   const expiry = records?.expiryDates?.[0];
@@ -197,7 +215,22 @@ export const parseNseOptionChain = (
   const stamped = records?.timestamp ? new Date(records.timestamp) : null;
   const asOf = stamped && !isNaN(stamped.getTime()) ? stamped.toISOString() : now.toISOString();
 
-  return { rows: rows.slice(start, start + strikesEachSide * 2 + 1), fullRows, spot, expiry, asOf };
+  // NSE's own expiry totals, when the payload carries them.
+  const ceTot = res.filtered?.CE?.totOI;
+  const peTot = res.filtered?.PE?.totOI;
+  const officialTotals =
+    typeof ceTot === 'number' && typeof peTot === 'number' && (ceTot > 0 || peTot > 0)
+      ? { ceOi: ceTot, peOi: peTot }
+      : undefined;
+
+  return {
+    rows: rows.slice(start, start + strikesEachSide * 2 + 1),
+    fullRows,
+    spot,
+    expiry,
+    asOf,
+    officialTotals
+  };
 };
 
 // ---------------------------------------------------------------------------
@@ -210,6 +243,7 @@ export interface LiveChainDetail {
   spot: number;
   expiry: string;
   asOf: string; // NSE's own data timestamp — show it, don't imply "live"
+  officialTotals?: OfficialOiTotals; // NSE's own totOI numbers, when present
 }
 
 const chainCache = new Map<string, { detail: LiveChainDetail; ts: number }>();

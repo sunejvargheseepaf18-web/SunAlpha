@@ -350,7 +350,7 @@ export const fetchOptionRadar = async (): Promise<OptionRadarItem[]> => {
         if (!detail) continue;
         // Full-chain analytics: PCR/walls/max pain over EVERY strike of the
         // expiry, matching NSE's own whole-chain numbers.
-        const s = computeOiSummary(detail.fullRows);
+        const s = computeOiSummary(detail.fullRows, detail.officialTotals);
         if (!s) continue;
         const asOfTime = new Date(detail.asOf).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
         items.push({

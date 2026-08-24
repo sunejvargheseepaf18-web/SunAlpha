@@ -114,7 +114,11 @@ export const HoldingsPanel: React.FC<HoldingsPanelProps> = ({
                         <span className="text-emerald-500">NAV as of {pos.priceAsOf}</span>
                       )}
                       {pos.priceSource === 'LIVE_QUOTE' && (
-                        <span className="text-emerald-500">live quote</span>
+                        <span className="text-emerald-500">
+                          quote {pos.priceAsOf
+                            ? new Date(pos.priceAsOf).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+                            : 'live'}
+                        </span>
                       )}
                       {!pos.priceSource && <span>last known price</span>}
                     </div>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { OptionChainRow, OptionContract } from '../types';
 import { MousePointer2, TrendingUp, TrendingDown, Crosshair } from 'lucide-react';
-import { classifyBuildup, BuildupKind } from '../domain/derivatives/oiAnalytics.engine';
+import { classifyBuildup, formatOi, BuildupKind } from '../domain/derivatives/oiAnalytics.engine';
 
 const BUILDUP_LABEL: Record<BuildupKind, string> = {
   LONG_BUILDUP: 'Long buildup — premium ↑ with OI ↑ (fresh longs)',
@@ -37,6 +37,9 @@ const OiDelta: React.FC<{ contract: OptionContract }> = ({ contract }) => {
 
 export const OptionChain: React.FC<OptionChainProps> = ({ data, spotPrice, symbol, onSelectContract, expiry, asOf, source }) => {
   const strikeStep = data.length >= 2 ? data[1].strike - data[0].strike : spotPrice * 0.01;
+  // Depth bars scale to the heaviest strike in view — a fixed divisor
+  // saturated for index OI and vanished for equity OI.
+  const maxOi = Math.max(1, ...data.map(r => Math.max(r.ce.oi, r.pe.oi)));
   const asOfLabel = asOf
     ? new Date(asOf).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
     : null;
@@ -79,7 +82,7 @@ export const OptionChain: React.FC<OptionChainProps> = ({ data, spotPrice, symbo
                         <th className="p-2 border-b-2 border-red-500/20 bg-red-50/30 text-red-800 uppercase tracking-wider" colSpan={4}>PUTS (PE)</th>
                     </tr>
                     <tr className="border-b border-gray-200 text-[10px] uppercase tracking-tight bg-gray-50">
-                        <th className="py-2 w-14 text-gray-400 font-medium">OI Lks</th>
+                        <th className="py-2 w-14 text-gray-400 font-medium" title="Open interest (contracts)">OI</th>
                         <th className="py-2 w-14 text-gray-400 font-medium" title="Change in open interest today">OI Δ</th>
                         <th className="py-2 w-11 text-gray-400 font-medium">IV</th>
                         <th className="py-2 w-16 text-emerald-700 font-bold bg-emerald-50/50">LTP</th>
@@ -89,7 +92,7 @@ export const OptionChain: React.FC<OptionChainProps> = ({ data, spotPrice, symbo
                         <th className="py-2 w-16 text-red-700 font-bold bg-red-50/50">LTP</th>
                         <th className="py-2 w-11 text-gray-400 font-medium">IV</th>
                         <th className="py-2 w-14 text-gray-400 font-medium" title="Change in open interest today">OI Δ</th>
-                        <th className="py-2 w-14 text-gray-400 font-medium">OI Lks</th>
+                        <th className="py-2 w-14 text-gray-400 font-medium" title="Open interest (contracts)">OI</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 bg-white">
@@ -102,8 +105,8 @@ export const OptionChain: React.FC<OptionChainProps> = ({ data, spotPrice, symbo
                             <tr key={row.strike} className={`group transition-colors ${isATM ? 'bg-blue-50/30' : 'hover:bg-gray-50'}`}>
                                 {/* CE DATA */}
                                 <td className={`py-2 relative border-r border-dashed border-gray-100 ${isITM_CE ? 'bg-emerald-50/10' : ''}`}>
-                                    <span className="relative z-10 text-gray-600">{(row.ce.oi / 100000).toFixed(1)}</span>
-                                    <div className="absolute inset-y-1 left-0 bg-emerald-100 opacity-20 rounded-r" style={{ width: `${Math.min(100, row.ce.oi/20000)}%` }}></div>
+                                    <span className="relative z-10 text-gray-600">{formatOi(row.ce.oi)}</span>
+                                    <div className="absolute inset-y-1 left-0 bg-emerald-100 opacity-20 rounded-r" style={{ width: `${Math.min(100, (row.ce.oi / maxOi) * 100)}%` }}></div>
                                 </td>
                                 <td className={`py-2 text-[10px] ${isITM_CE ? 'bg-emerald-50/10' : ''}`}>
                                     <OiDelta contract={row.ce} />
@@ -134,8 +137,8 @@ export const OptionChain: React.FC<OptionChainProps> = ({ data, spotPrice, symbo
                                     <OiDelta contract={row.pe} />
                                 </td>
                                 <td className={`py-2 relative border-l border-dashed border-gray-100 ${isITM_PE ? 'bg-red-50/10' : ''}`}>
-                                    <span className="relative z-10 text-gray-600">{(row.pe.oi / 100000).toFixed(1)}</span>
-                                    <div className="absolute inset-y-1 right-0 bg-red-100 opacity-20 rounded-l" style={{ width: `${Math.min(100, row.pe.oi/20000)}%` }}></div>
+                                    <span className="relative z-10 text-gray-600">{formatOi(row.pe.oi)}</span>
+                                    <div className="absolute inset-y-1 right-0 bg-red-100 opacity-20 rounded-l" style={{ width: `${Math.min(100, (row.pe.oi / maxOi) * 100)}%` }}></div>
                                 </td>
                             </tr>
                         );
