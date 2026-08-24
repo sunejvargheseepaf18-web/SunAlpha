@@ -19,6 +19,8 @@ import { AlertManager } from '../components/AlertManager';
 import { getAlerts } from '../services/alertService';
 import { ContextPanel } from '../components/ContextPanel';
 import { getIntradayHistory, IntradayBar } from '../services/marketFeed';
+import { getKgsPlusPlan, KgsPlusPlan } from '../services/kgsPlusService';
+import { KgsPlusPanel } from '../components/KgsPlusPanel';
 
 export const TradeDashboard = () => {
   const [selectedSymbol, setSelectedSymbol] = useState('RELIANCE');
@@ -65,6 +67,27 @@ export const TradeDashboard = () => {
     setAutoOverlays(false);
     setter(v => !v);
   };
+
+  // KGS++ day plan: CPR x OI x regime confluence for the selected symbol.
+  const [kgsPlan, setKgsPlan] = useState<KgsPlusPlan | null>(null);
+  useEffect(() => {
+    if (!intelligence) {
+      setKgsPlan(null);
+      return;
+    }
+    let cancelled = false;
+    getKgsPlusPlan(
+      intelligence.symbol,
+      intelligence.price,
+      intelligence.technical?.cpr ?? null,
+      intelligence.regime
+    ).then(plan => {
+      if (!cancelled) setKgsPlan(plan);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [intelligence]);
 
   // Chart timeframe: intraday (5m/15m bars from the live feed) or daily.
   const [timeframe, setTimeframe] = useState<'1D' | '1W' | '3M'>('3M');
@@ -303,6 +326,8 @@ export const TradeDashboard = () => {
                           asOf={optionChain?.asOf}
                           source={optionChain?.source}
                        />
+                   ) : kgsPlan ? (
+                       <KgsPlusPanel plan={kgsPlan} />
                    ) : (
                        <div className="p-6">
                            <h3 className="font-bold text-gray-800 mb-4">Technical Context</h3>
